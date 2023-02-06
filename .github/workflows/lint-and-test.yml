@@ -16,11 +16,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Lint
-      uses: qernal/github-actions-rust-clippy@v2.0.2
+    - uses: dtolnay/rust-toolchain@stable
       with:
-        args: "--verbose,--all-targets"
-        path_glob: "**/src"
+        components: clippy
+    - name: Lint
+      uses: giraffate/clippy-action@v1
+      with:
+        reporter: 'github-pr-review'
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        clippy_flags: '-- -Dwarnings'
     - name: Build
       run: cargo build --verbose
     - name: Run tests
