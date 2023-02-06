@@ -1,7 +1,9 @@
 mod account;
 mod profile;
+mod follow;
 
 pub use self::{
     account::*,
-    profile::*
+    profile::*,
+    follow::*
 };
