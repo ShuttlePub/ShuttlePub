@@ -1,0 +1,19 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.6"
+
+anyhow = "1.0"
+thiserror = "1.0"
+
+serde = "1.0"
+serde_json = "1.0"
+
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = "0.3"
+
+tokio = { version = "1", features = ["full"] }
