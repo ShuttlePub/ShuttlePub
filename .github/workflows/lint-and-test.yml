@@ -19,6 +19,7 @@ jobs:
     - name: Lint
       uses: qernal/github-actions-rust-clippy@v2.0.2
       with:
+        args: "--verbose -D warnings"
         path_glob: "**/src"
     - name: Build
       run: cargo build --verbose
