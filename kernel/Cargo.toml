@@ -10,3 +10,4 @@ serde = { version = "1.0", features = ["derive"] }
 destructure = "0.1.2"
 
 mockall = "0.11"
+async-trait = "0.1"
