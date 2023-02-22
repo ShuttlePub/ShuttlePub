@@ -2,10 +2,5 @@
 members = [
   "kernel",
   "application",
-
-  # !! deprecated!!
-  "repository",
-
   "server"
-]
 
