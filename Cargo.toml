@@ -2,5 +2,6 @@
 members = [
   "kernel",
   "application",
-  "server"
-
+  "driver",
+  "server",
+]
