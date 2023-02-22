@@ -170,6 +170,7 @@ mod tests {
         Ok(pool)
     }
 
+    #[ignore = "It depends on Postgres and does not work as is."]
     #[tokio::test]
     async fn test_create() -> anyhow::Result<()> {
         let pool = test_pool().await?;
@@ -208,6 +209,7 @@ mod tests {
         Ok(())
     }
 
+    #[ignore = "It depends on Postgres and does not work as is."]
     #[tokio::test]
     async fn test_update() -> anyhow::Result<()> {
         let pool = test_pool().await?;
@@ -260,6 +262,7 @@ mod tests {
         Ok(())
     }
 
+    #[ignore = "It depends on Postgres and does not work as is."]
     #[tokio::test]
     async fn test() -> anyhow::Result<()> {
         let pool = test_pool().await?;
