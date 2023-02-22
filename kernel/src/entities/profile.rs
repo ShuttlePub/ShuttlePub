@@ -1,11 +1,56 @@
+use destructure::Destructure;
 use serde::{Serialize, Deserialize};
+use time::OffsetDateTime;
+use uuid::Uuid;
+
+use super::{AccountId, UpdateTime};
+
+use crate::error::KernelError;
+
+#[derive(Debug, Clone, Copy, Hash, Serialize, Deserialize)]
+pub struct ProfileId(Uuid);
+
+impl ProfileId {
+    pub fn new(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
+impl AsRef<Uuid> for ProfileId {
+    fn as_ref(&self) -> &Uuid {
+        &self.0
+    }
+}
+
+impl From<ProfileId> for Uuid {
+    fn from(id: ProfileId) -> Self {
+        id.0
+    }
+}
+
+impl TryFrom<&str> for ProfileId {
+    type Error = KernelError;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let tried = Uuid::try_parse(value)
+            .map_err(|e| {
+                KernelError::Convert(format!("failed parse uuid from &str. `uuid`: {}", e))
+            })?;
+        Ok(Self(tried))
+    }
+}
+
+impl Default for ProfileId {
+    fn default() -> Self {
+        Self(Uuid::new_v4())
+    }
+}
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct DisplayName(String);
 
-impl From<String> for DisplayName {
-    fn from(prime: String) -> Self {
-        Self(prime)
+impl From<DisplayName> for String {
+    fn from(name: DisplayName) -> Self {
+        name.0
     }
 }
 
@@ -21,12 +66,12 @@ impl DisplayName {
     }
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, Default)]
 pub struct Summary(String);
 
-impl From<String> for Summary {
-    fn from(prime: String) -> Self {
-        Self(prime)
+impl From<Summary> for String {
+    fn from(text: Summary) -> Self {
+        text.0
     }
 }
 
@@ -43,12 +88,12 @@ impl Summary {
     }
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, Default)]
 pub struct Icon(String);
 
-impl From<String> for Icon {
-    fn from(prime: String) -> Self {
-        Self(prime)
+impl From<Icon> for String {
+    fn from(url: Icon) -> Self {
+        url.0
     }
 }
 
@@ -64,12 +109,12 @@ impl Icon {
     }
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, Default)]
 pub struct Banner(String);
 
-impl From<String> for Banner {
-    fn from(prime: String) -> Self {
-        Self(prime)
+impl From<Banner> for String {
+    fn from(url: Banner) -> Self {
+        url.0
     }
 }
 
@@ -85,37 +130,87 @@ impl Banner {
     }
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, Destructure)]
 pub struct Profile {
+    id: ProfileId,
+    account: AccountId,
+    date: UpdateTime,
     name: DisplayName,
     summary: Summary,
-
     icon: Icon,
     banner: Banner
 }
 
 impl Profile {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        id: impl Into<Uuid>,
+        account: impl Into<i64>,
+        created_at: impl Into<OffsetDateTime>,
+        updated_at: impl Into<OffsetDateTime>,
         name: impl Into<String>,
         summary: impl Into<String>,
         icon: impl Into<String>,
         banner: impl Into<String>
     ) -> Self {
         Self {
+            id: ProfileId::new(id.into()),
+            account: AccountId::new(account.into()),
+            date: UpdateTime::new(created_at.into(), updated_at.into()),
             name: DisplayName::new(name),
             summary: Summary::new(summary),
             icon: Icon::new(icon),
             banner: Banner::new(banner)
         }
     }
+
+    pub fn id(&self) -> &ProfileId {
+        &self.id
+    }
+
+    pub fn account(&self) -> &AccountId {
+        &self.account
+    }
+
+    pub fn date(&self) -> &UpdateTime {
+        &self.date
+    }
+
+    pub fn name(&self) -> &DisplayName {
+        &self.name
+    }
+
+    pub fn summary(&self) -> &Summary {
+        &self.summary
+    }
+
+    pub fn icon(&self) -> &Icon {
+        &self.icon
+    }
+
+    pub fn banner(&self) -> &Banner {
+        &self.banner
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::entities::Profile;
+    use time::OffsetDateTime;
+    use uuid::Uuid;
+
+    use crate::entities::{Profile, AccountId};
 
     #[test]
     fn struct_test() {
-        let _profile = Profile::new("Shuttle", "This is Shuttle!", "example.com", "example.com");
+        let _profile = Profile::new(
+            Uuid::new_v4(),
+            AccountId::default(),
+            OffsetDateTime::now_utc(),
+            OffsetDateTime::now_utc(),
+            "Shuttle", 
+            "This is Shuttle!", 
+            "example.com", 
+            "example.com"
+        );
     }
 }

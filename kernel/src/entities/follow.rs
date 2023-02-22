@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use crate::entities::AccountId;
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Default, Serialize, Deserialize)]
 pub struct Follow(Vec<AccountTypes>);
 
 impl AsRef<[AccountTypes]> for Follow {
@@ -12,7 +12,7 @@ impl AsRef<[AccountTypes]> for Follow {
 
 impl Follow {
     pub fn new() -> Self {
-        Self(Vec::new())
+        Self::default()
     }
 }
 
