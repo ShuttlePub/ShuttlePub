@@ -1,0 +1,21 @@
+version: '3'
+services:
+  postgres_db:
+    image: postgres:15.2-alpine
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: shuttle123
+      POSTGRES_PASSWORD: shuttle456
+      POSTGRES_HOST_AUTH_METHOD: trust
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+volumes:
+  db-data:
