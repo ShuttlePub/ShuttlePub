@@ -10,6 +10,7 @@ serde = { version = "1.0", features = ["derive"] }
 destructure = "0.1.2"
 
 rand = "0.8.5"
+image = "0.24"
 
 uuid = { version = "1.3", features = ["serde", "v4"] }
 time = { version = "0.3", features = ["serde"] }
