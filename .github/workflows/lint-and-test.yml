@@ -12,3 +12,4 @@ env:
 jobs:
   check:
     uses: ShuttlePub/workflows/.github/workflows/check.yml@main
+    secrets: inherit
