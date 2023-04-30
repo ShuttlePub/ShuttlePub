@@ -12,4 +12,6 @@ env:
 jobs:
   check:
     uses: ShuttlePub/workflows/.github/workflows/check.yml@main
+    with:
+      gen_coverage: true
     secrets: inherit
