@@ -1,17 +1,24 @@
 name: Rust
-
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
-
+    branches: [main]
+permissions:
+  contents: read
 env:
   CARGO_TERM_COLOR: always
-
 jobs:
   check:
-    uses: ShuttlePub/workflows/.github/workflows/check.yml@main
-  coverage:
-    uses: ShuttlePub/workflows/.github/workflows/coverage.yml@main
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --workspace --all-features --locked
+      - run: cargo build --workspace --locked
+      - run: git diff --check

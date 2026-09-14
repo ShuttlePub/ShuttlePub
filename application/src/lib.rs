@@ -1,7 +1,8 @@
-pub mod adaptor;
-pub mod transfer;
-pub mod interactor;
+//! Note application services.
+mod codec;
+mod service;
+mod timeline;
 
-mod error;
-
-pub use self::error::*;
+pub use nitinol::eventsource::error::Retryability;
+pub use service::{NoteService, ServiceError};
+pub use timeline::TimelineEntry;
