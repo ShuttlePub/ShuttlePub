@@ -80,7 +80,21 @@ cargo build --workspace --locked
 git diff --check
 ```
 
-On the implementation sandbox, the system sccache daemon cannot see sandbox
-`/tmp` and rustup's lld wrapper references a removed Nix store path. Commands
-there use `env RUSTC_WRAPPER= RUSTFLAGS='-C link-arg=-fuse-ld=bfd'` before Cargo.
-This is an environment workaround, not a project or CI requirement.
+On the implementation sandbox, the default stable toolchain's linker references
+a removed Nix store path. Use `cargo +1.97.1` for every command above (including
+`run`) in that environment. No repository toolchain file or linker override is
+needed. This is an environment workaround, not a project or CI requirement.
+
+### Issue #12 contract evidence
+
+| Contract | Implementation | Executable evidence |
+| --- | --- | --- |
+| 1. ProcessSystem/EventSourceSystem and in-memory stores | `application/src/service.rs` | `application/tests/runtime.rs`; `server/tests/process.rs` launches the actual binary |
+| 2. Post/reply/turbo/turbo_quote/reaction decide/apply and replay | `kernel/src/{note,types}.rs`, JSON codec | `kernel/tests/note.rs`; runtime tests reactivate every kind from shared event stores and restore snapshot plus event delta |
+| 3. Projector timeline and REST | `application/src/timeline.rs`, `server/src/routes.rs`, `docs/openapi.json` | `server/tests/http.rs`, `server/tests/pagination.rs`: creation, reaction, newest-first cursor pagination and invalid limits |
+| 4. Follow/Accept, actor resolution and HTTPSig | `driver/src/{federation,keys,signature,wire}.rs` | `driver/tests/federation.rs`; `server/tests/federation.rs` uses real HTTP endpoints, independent RSA keys, verified Accept and tampered Follow rejection |
+| 5. Emumet capability signing and post-relay requirements | `docs/emumet-contract.md` | Document review; proposal only, not an implemented or approved Emumet API |
+
+The CI workflow runs all workspace tests (including aggregate/replay tests),
+clippy with warnings denied, formatting and build. No external service or
+PostgreSQL is required. Federation fixtures use ephemeral loopback ports.
