@@ -1,25 +1,17 @@
 [package]
-name = "kernel"
-version = "0.1.0"
-edition = "2021"
+name = "shuttlepub-kernel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "kernel"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-destructure = "0.1.2"
+nitinol.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
 
-rand = "0.8.5"
-image = "0.24"
-
-uuid = { version = "1.3", features = ["serde", "v4"] }
-time = { version = "0.3", features = ["serde"] }
-
-mockall = { version = "0.11", optional = true }
-async-trait = "0.1"
-
-anyhow = "1"
-thiserror = "1"
-
-[features]
-mock = ["mockall"]
+[lints]
+workspace = true

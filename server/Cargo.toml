@@ -1,23 +1,28 @@
 [package]
+name = "shuttlepub-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
 name = "server"
-version = "0.1.0"
-edition = "2021"
 
 [dependencies]
-axum = { version = "0.6", features = ["form"] }
-
-anyhow = "1.0"
-thiserror = "1.0"
-
-serde = "1.0"
-serde_json = "1.0"
-
+kernel.workspace = true
+application.workspace = true
+driver.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+axum = "0.8"
+http-body-util = "0.1"
 tracing = "0.1"
-tracing-appender = "0.2"
-tracing-subscriber = { version = "0.3", features = ["registry", "fmt", "env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-tokio = { version = "1", features = ["full"] }
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
-kernel = { path = "../kernel" }
-driver = { path = "../driver" }
-application = { path = "../application" }
+[lints]
+workspace = true
