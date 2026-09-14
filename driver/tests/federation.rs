@@ -61,9 +61,8 @@ async fn valid_follow_resolves_actor_and_delivers_signed_accept()
     assert_eq!(accept["actor"], local);
     assert_eq!(accept["object"]["id"], follow.id);
     assert!(headers.contains_key("signature"));
-    let mut request =
-        http::Request::post(format!("{}/inbox", actor_id.trim_end_matches("/actor")))
-            .body(Full::new(body))?;
+    let mut request = http::Request::post(format!("{}/inbox", actor_id.trim_end_matches("/actor")))
+        .body(Full::new(body))?;
     *request.headers_mut() = headers;
     driver::verify_request(request, &federation.local_actor()?).await?;
     task.abort();
