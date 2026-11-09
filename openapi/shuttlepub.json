@@ -1,0 +1,159 @@
+{
+  "components": {
+    "schemas": {
+      "ApiStatus": {
+        "description": "Body of the example contract route.",
+        "properties": {
+          "api_version": {
+            "description": "API generation served, for example `v1`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version"
+        ],
+        "type": "object"
+      },
+      "ErrorBody": {
+        "description": "Structured error body returned by every non-2xx `/api/v1` response.",
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode",
+            "description": "Stable machine readable code; clients should branch on this value."
+          },
+          "details": {
+            "description": "Optional per-field problems, mainly for `invalid_request`.",
+            "items": {
+              "$ref": "#/components/schemas/FieldViolation"
+            },
+            "type": "array"
+          },
+          "message": {
+            "description": "Human readable description intended for developers, not end users.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object"
+      },
+      "ErrorCode": {
+        "description": "Machine readable error code carried by every error body.",
+        "enum": [
+          "invalid_request",
+          "unauthorized",
+          "forbidden",
+          "not_found",
+          "conflict",
+          "internal",
+          "not_implemented"
+        ],
+        "type": "string"
+      },
+      "FieldViolation": {
+        "description": "A single field level validation problem.",
+        "properties": {
+          "field": {
+            "description": "Name or JSON pointer of the offending field.",
+            "type": "string"
+          },
+          "message": {
+            "description": "Human readable explanation.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ],
+        "type": "object"
+      },
+      "PageInfo": {
+        "description": "Pagination metadata embedded in collection responses.",
+        "properties": {
+          "next_cursor": {
+            "description": "Cursor for the next page; absent on the last page.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "PageParams": {
+        "description": "Query parameters for cursor paginated collections.",
+        "properties": {
+          "cursor": {
+            "description": "Opaque cursor taken from a previous `next_cursor`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "description": "Maximum number of items to return; the server picks a default when omitted.",
+            "format": "int32",
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "ShuttlePub /api/v1 contract. Routes and types only: handlers are stubs answering 501 until the backend is implemented.",
+    "license": {
+      "identifier": "MIT",
+      "name": "MIT"
+    },
+    "title": "ShuttlePub API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/status": {
+      "get": {
+        "operationId": "getApiStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiStatus"
+                }
+              }
+            },
+            "description": "Contract only: never returned while the endpoint is a stub"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not implemented yet"
+          }
+        },
+        "summary": "Example contract route (stub: always answers 501)",
+        "tags": [
+          "meta"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "description": "Service level information",
+      "name": "meta"
+    }
+  ]
+}

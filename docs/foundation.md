@@ -14,7 +14,8 @@ be listed, because they can resolve to internal addresses. Redirects and ambient
 HTTP proxies are disabled. HTTP origins are for local testing; use HTTPS for
 remote peers. This is an unauthenticated development service, not internet-ready.
 
-GET `/openapi.json` serves the checked-in API contract. POST `/api/notes` with
+GET `/openapi.json` serves the generated `/api/v1` contract (see "OpenAPI contract"
+below); the legacy development routes are not part of it. POST `/api/notes` with
 client-generated UUID `id`, UUID `author`, `content`, and `kind: {"type":"post"}`.
 Other kinds require `target`: `reply`, `turbo`, `turbo_quote`. Turbo requires empty
 content; all other kinds require nonblank content. Targets are opaque identifiers
@@ -91,10 +92,33 @@ needed. This is an environment workaround, not a project or CI requirement.
 | --- | --- | --- |
 | 1. ProcessSystem/EventSourceSystem and in-memory stores | `application/src/service.rs` | `application/tests/runtime.rs`; `server/tests/process.rs` launches the actual binary |
 | 2. Post/reply/turbo/turbo_quote/reaction decide/apply and replay | `kernel/src/{note,types}.rs`, JSON codec | `kernel/tests/note.rs`; runtime tests reactivate every kind from shared event stores and restore snapshot plus event delta |
-| 3. Projector timeline and REST | `application/src/timeline.rs`, `server/src/routes.rs`, `docs/openapi.json` | `server/tests/http.rs`, `server/tests/pagination.rs`: creation, reaction, newest-first cursor pagination and invalid limits |
+| 3. Projector timeline and REST | `application/src/timeline.rs`, `server/src/routes.rs` | `server/tests/http.rs`, `server/tests/pagination.rs`: creation, reaction, newest-first cursor pagination and invalid limits |
 | 4. Follow/Accept, actor resolution and HTTPSig | `driver/src/{federation,keys,signature,wire}.rs` | `driver/tests/federation.rs`; `server/tests/federation.rs` uses real HTTP endpoints, independent RSA keys, verified Accept and tampered Follow rejection |
 | 5. Emumet capability signing and post-relay requirements | `docs/emumet-contract.md` | Document review; proposal only, not an implemented or approved Emumet API |
 
 The CI workflow runs all workspace tests (including aggregate/replay tests),
 clippy with warnings denied, formatting and build. No external service or
 PostgreSQL is required. Federation fixtures use ephemeral loopback ports.
+
+## OpenAPI contract (`/api/v1`)
+
+The server layer defines the `/api/v1` routes and types only; handlers are
+stubs that answer an explicit `501` with error code `not_implemented`
+(`server/src/api_v1.rs`). The OpenAPI 3.1 document is generated with utoipa from
+`server/src/openapi.rs` and checked in as `openapi/shuttlepub.json`. Output is
+deterministic (object keys sorted, two-space indent, trailing newline).
+`GET /openapi.json` serves exactly the same content. The legacy development
+routes (`/api/notes`, `/api/timeline`, ...) are intentionally not in the schema.
+
+Regenerate after changing any route or DTO, and commit the result:
+
+```sh
+cargo run --locked -p shuttlepub-server --bin openapi
+```
+
+`server/tests/openapi.rs` fails when the checked-in file differs from the
+generated output, and the `openapi-schema` CI job regenerates the file and fails
+on any `git diff`. To add a route: write a `#[utoipa::path]` handler in
+`api_v1`, register it in `api_v1::router()` and in `ApiDoc` (`paths`/`schemas`),
+regenerate, and update the snapshot expectations in `server/tests/openapi.rs`.
+Every error response must use `ErrorBody` (`code`, `message`, optional `details`).

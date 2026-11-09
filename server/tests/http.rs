@@ -64,7 +64,7 @@ async fn create_and_read_timeline_over_http() -> Result<(), Box<dyn std::error::
         .await?;
     assert_eq!(response.status(), StatusCode::OK);
     let spec: Value = serde_json::from_slice(&response.into_body().collect().await?.to_bytes())?;
-    assert!(spec["paths"]["/api/timeline"]["get"].is_object());
+    assert!(spec["paths"]["/api/v1/status"]["get"].is_object());
     notes.stop().await?;
     Ok(())
 }
