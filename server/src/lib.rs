@@ -29,7 +29,7 @@ pub fn router(notes: Arc<NoteService>, federation: Arc<Federation>) -> Router {
         .route("/actor", get(routes::actor))
         .route("/openapi.json", get(openapi_json))
         .with_state(AppState { notes, federation })
-        .merge(api_v1::router())
+        .merge(openapi::contract().0)
 }
 
 /// Serves the generated `/api/v1` contract; identical to `openapi/shuttlepub.json`.

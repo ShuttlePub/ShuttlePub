@@ -15,7 +15,7 @@
         "type": "object"
       },
       "ErrorBody": {
-        "description": "Structured error body returned by every non-2xx `/api/v1` response.",
+        "description": "Structured error body returned by `/api/v1` handlers for every error they report.\n\nResponses produced by the framework itself (unmatched route, wrong method)\ndo not go through a handler and therefore do not use this body.",
         "properties": {
           "code": {
             "$ref": "#/components/schemas/ErrorCode",

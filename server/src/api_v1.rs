@@ -6,13 +6,13 @@
 //! that clients can never mistake a stub for a successful response.
 
 use axum::{
-    Json, Router,
+    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::get,
 };
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 /// Path prefix shared by every contract route.
 pub const PREFIX: &str = "/api/v1";
@@ -61,7 +61,10 @@ pub struct FieldViolation {
     pub message: String,
 }
 
-/// Structured error body returned by every non-2xx `/api/v1` response.
+/// Structured error body returned by `/api/v1` handlers for every error they report.
+///
+/// Responses produced by the framework itself (unmatched route, wrong method)
+/// do not go through a handler and therefore do not use this body.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct ErrorBody {
     /// Stable machine readable code; clients should branch on this value.
@@ -143,8 +146,12 @@ pub async fn get_status() -> ApiV1Error {
     ApiV1Error::not_implemented()
 }
 
-/// Router holding every contract route. Add new routes here together with the
-/// matching entry in [`crate::openapi::ApiDoc`].
-pub fn router() -> Router {
-    Router::new().route("/api/v1/status", get(get_status))
+/// Every contract route, registered once.
+///
+/// `routes!` takes the HTTP method and path from each handler's
+/// `#[utoipa::path]`, so the axum route and the OpenAPI operation come from the
+/// same definition. Stub handlers must take no extractors so that they answer
+/// `501` regardless of the request.
+pub fn router() -> OpenApiRouter {
+    OpenApiRouter::new().routes(routes!(get_status))
 }

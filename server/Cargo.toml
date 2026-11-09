@@ -18,6 +18,7 @@ serde_json.workspace = true
 uuid.workspace = true
 axum = "0.8"
 utoipa = "5"
+utoipa-axum = "0.2"
 http-body-util = "0.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

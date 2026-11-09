@@ -8,6 +8,8 @@ use http_body_util::BodyExt;
 use serde_json::Value;
 use std::{path::PathBuf, sync::Arc};
 use tower::ServiceExt;
+use utoipa::OpenApi;
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
@@ -68,6 +70,28 @@ async fn served_schema_is_byte_identical_to_checked_in_file() -> TestResult {
     assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
     assert_eq!(body_of(response).await?, generated_file()?.into_bytes());
     Ok(())
+}
+
+/// Build a concrete URI for a documented path by giving every path parameter a
+/// valid sample value of its declared type.
+fn fill_path(path: &str, operation: &Value) -> String {
+    let mut uri = path.to_owned();
+    for parameter in operation["parameters"].as_array().into_iter().flatten() {
+        if parameter["in"] != "path" {
+            continue;
+        }
+        let name = parameter["name"].as_str().unwrap_or_default();
+        let schema = &parameter["schema"];
+        let sample = if schema["format"] == "uuid" {
+            "00000000-0000-0000-0000-000000000000"
+        } else if schema["type"] == "integer" {
+            "1"
+        } else {
+            "sample"
+        };
+        uri = uri.replace(&format!("{{{name}}}"), sample);
+    }
+    uri
 }
 
 fn operations(spec: &Value) -> Vec<(String, String, String)> {
@@ -145,7 +169,8 @@ async fn every_documented_route_is_an_explicit_501_stub() -> TestResult {
     let documented = operations(&spec);
     assert!(!documented.is_empty());
     for (method, path, _) in documented {
-        let uri = path.replace(['{', '}'], "x");
+        let operation = &spec["paths"][path.as_str()][method.to_lowercase()];
+        let uri = fill_path(&path, operation);
         let response = app
             .clone()
             .oneshot(
@@ -165,5 +190,44 @@ async fn every_documented_route_is_an_explicit_501_stub() -> TestResult {
         assert_eq!(body["code"], "not_implemented", "{method} {path}");
         assert!(body["message"].is_string());
     }
+    Ok(())
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/registration-probe",
+    responses((status = 501, description = "probe", body = server::api_v1::ErrorBody))
+)]
+async fn registration_probe() -> server::api_v1::ApiV1Error {
+    server::api_v1::ApiV1Error::not_implemented()
+}
+
+/// One `routes!` registration must reach both the axum router and the schema.
+#[tokio::test]
+async fn single_registration_reaches_router_and_schema() -> TestResult {
+    let (router, doc) = OpenApiRouter::with_openapi(server::openapi::ApiDoc::openapi())
+        .merge(server::api_v1::router())
+        .routes(routes!(registration_probe))
+        .split_for_parts();
+    let spec = serde_json::to_value(doc)?;
+    assert!(spec["paths"]["/api/v1/registration-probe"]["get"].is_object());
+    assert!(spec["paths"]["/api/v1/status"]["get"].is_object());
+    let response = router
+        .oneshot(Request::get("/api/v1/registration-probe").body(Body::empty())?)
+        .await?;
+    assert_eq!(response.status(), StatusCode::NOT_IMPLEMENTED);
+    Ok(())
+}
+
+/// Contract routes must be registered through `routes!`; a plain `.route(`
+/// would serve a path that the schema never lists.
+#[test]
+fn contract_routes_are_not_registered_outside_routes_macro() -> TestResult {
+    let source =
+        std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/api_v1.rs"))?;
+    assert!(
+        !source.contains(".route("),
+        "use routes! instead of .route("
+    );
     Ok(())
 }

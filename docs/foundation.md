@@ -118,7 +118,14 @@ cargo run --locked -p shuttlepub-server --bin openapi
 
 `server/tests/openapi.rs` fails when the checked-in file differs from the
 generated output, and the `openapi-schema` CI job regenerates the file and fails
-on any `git diff`. To add a route: write a `#[utoipa::path]` handler in
-`api_v1`, register it in `api_v1::router()` and in `ApiDoc` (`paths`/`schemas`),
-regenerate, and update the snapshot expectations in `server/tests/openapi.rs`.
-Every error response must use `ErrorBody` (`code`, `message`, optional `details`).
+on any `git diff`. Routes have a single registration point: write a
+`#[utoipa::path]` handler in `api_v1` and add it to `api_v1::router()` with
+`routes!(handler)`. The macro takes the method and path from the attribute and
+feeds both the axum router and the OpenAPI paths, so a route cannot exist
+without its schema entry (register it any other way, e.g. a plain `.route(`, and
+`server/tests/openapi.rs` fails). Only new schema types that no operation
+references need an extra entry in `ApiDoc` (`components(schemas(...))`). Then
+regenerate and update the snapshot expectations in `server/tests/openapi.rs`.
+Stub handlers take no extractors so they answer `501` for any request. Errors
+reported by handlers use `ErrorBody` (`code`, `message`, optional `details`);
+framework-level 404/405 responses do not.
