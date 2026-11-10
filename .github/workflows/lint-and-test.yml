@@ -22,3 +22,15 @@ jobs:
       - run: cargo test --workspace --all-features --locked
       - run: cargo build --workspace --locked
       - run: git diff --check
+  openapi-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Regenerate openapi/shuttlepub.json
+        run: cargo run --locked -p shuttlepub-server --bin openapi
+      - name: Fail if the checked-in schema is stale
+        run: |
+          git diff --exit-code -- openapi/shuttlepub.json
+          test -z "$(git status --porcelain -- openapi)"
