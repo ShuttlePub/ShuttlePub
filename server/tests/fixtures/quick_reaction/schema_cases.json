@@ -333,7 +333,7 @@
     "schema_valid": false
   },
   {
-    "name": "settings request: whitespace inside the emoji passes the schema but not server validation",
+    "name": "settings request: trailing space in the emoji is rejected by schema and server validation",
     "target": {
       "operation": "putQuickReactionSettings",
       "kind": "request"
@@ -347,8 +347,134 @@
         }
       ]
     },
-    "schema_valid": true,
-    "rust_valid": false
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: no-break space in the emoji is rejected by schema and server validation",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍 "
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: tab in the emoji is rejected by schema and server validation",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍\t"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: newline between emoji is rejected by schema and server validation",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍\n👍"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: DEL control character in the emoji is rejected by schema and server validation",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: C1 control character in the emoji is rejected by schema and server validation",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: ideographic space in the emoji is rejected by schema and server validation",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍　"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: ZWJ, flag and keycap sequences are accepted",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👨‍👩‍👧‍👦"
+        },
+        {
+          "type": "unicode",
+          "value": "🇯🇵"
+        },
+        {
+          "type": "unicode",
+          "value": "1️⃣"
+        }
+      ]
+    },
+    "schema_valid": true
   },
   {
     "name": "reaction request: Unicode emoji",

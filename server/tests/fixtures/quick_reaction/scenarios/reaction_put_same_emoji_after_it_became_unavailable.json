@@ -1,0 +1,106 @@
+{
+  "name": "reaction_put_same_emoji_after_it_became_unavailable",
+  "description": "Availability is checked before the repeat no-op rule: repeating the already selected emoji after it became unavailable is 422, the selection stays and can still be removed.",
+  "setup": {
+    "emoji": {
+      "offcat": {
+        "shortcode": "offcat",
+        "availability": "available"
+      }
+    },
+    "settings": {
+      "revision": 0,
+      "favorites": []
+    },
+    "reaction": {
+      "type": "custom",
+      "id": "offcat"
+    }
+  },
+  "steps": [
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "custom",
+          "id": "offcat"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "custom",
+              "id": "offcat"
+            },
+            "availability": "available",
+            "shortcode": "offcat"
+          }
+        }
+      },
+      "note": "repeat while available is a no-op"
+    },
+    {
+      "mutate_emoji": {
+        "id": "offcat",
+        "availability": "unavailable",
+        "reason": "disabled",
+        "note": "the custom emoji is disabled on the server"
+      }
+    },
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "custom",
+          "id": "offcat"
+        }
+      },
+      "expect": {
+        "status": 422,
+        "body": {
+          "code": "emoji_unavailable",
+          "message": "an emoji in the request is unavailable",
+          "details": [
+            {
+              "field": "/emoji",
+              "message": "emoji is unavailable"
+            }
+          ]
+        }
+      },
+      "note": "same emoji, now unavailable: 422 wins over the no-op"
+    },
+    {
+      "operation": "getNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "custom",
+              "id": "offcat"
+            },
+            "availability": "unavailable",
+            "unavailable_reason": "disabled",
+            "shortcode": "offcat"
+          }
+        }
+      },
+      "note": "the selection stays"
+    },
+    {
+      "operation": "deleteNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": null
+        }
+      }
+    }
+  ]
+}

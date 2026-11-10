@@ -36,11 +36,11 @@
                 "type": "string"
               },
               "value": {
-                "description": "The fully qualified emoji sequence, for example `👍` or `👨‍👩‍👧‍👦`.\nAt most 32 code points, no whitespace or control characters and at\nleast one non-ASCII code point (the exact emoji set is checked by\nthe server; skin tones and ZWJ sequences are distinct emoji).",
+                "description": "The fully qualified emoji sequence, for example `👍` or `👨‍👩‍👧‍👦`.\nAt most 32 code points, no Unicode White_Space or control characters\nand at least one non-ASCII code point; the pattern spells out exactly\nthe characters the server rejects (the exact emoji set is checked by\nthe server; skin tones and ZWJ sequences are distinct emoji).",
                 "example": "👍",
                 "maxLength": 32,
                 "minLength": 1,
-                "pattern": "[^\\x00-\\x7F]",
+                "pattern": "^[^\\x00-\\x20\\x7F-\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]*[^\\x00-\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000][^\\x00-\\x20\\x7F-\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]*$",
                 "type": "string"
               }
             },
@@ -565,7 +565,7 @@
         ]
       },
       "put": {
-        "description": "Idempotent: repeating the same emoji returns `200` with the same state. A\ndifferent emoji replaces the previous one (1 Profile, 1 Note, 1 reaction).",
+        "description": "Idempotent: repeating the same emoji returns `200` with the same state. A\ndifferent emoji replaces the previous one (1 Profile, 1 Note, 1 reaction).\nAvailability is checked first: an unavailable emoji is always `422`, even\nwhen it is the emoji already selected (the selection then stays, and can be\nremoved with `DELETE`).",
         "operationId": "putNoteReaction",
         "parameters": [
           {
@@ -657,7 +657,7 @@
                 }
               }
             },
-            "description": "The emoji is unavailable (emoji_unavailable); the previous reaction stays"
+            "description": "The emoji is unavailable (emoji_unavailable), checked before the repeat no-op rule; the current reaction stays"
           },
           "501": {
             "content": {

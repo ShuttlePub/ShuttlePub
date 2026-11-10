@@ -38,7 +38,9 @@
 //! * Reaction `PUT` selects the emoji (`200`). Repeating the same emoji is a
 //!   no-op `200`; a different emoji replaces the previous one. The picker UI
 //!   removes first and then selects, but the replacement is part of the API.
-//!   Selecting an unavailable emoji answers `422 emoji_unavailable`.
+//!   Selecting an unavailable emoji answers `422 emoji_unavailable`; this is
+//!   checked before the no-op rule, so repeating the already selected emoji
+//!   after it became unavailable is also `422` (the selection stays).
 //! * Reaction `DELETE` always answers `200` with the unreacted state, also when
 //!   nothing was selected (retry safe) and **also when the selected emoji has
 //!   become unavailable**: removal never depends on availability.
@@ -108,13 +110,14 @@ pub enum EmojiRef {
     /// A Unicode emoji, identified by its code point sequence.
     Unicode {
         /// The fully qualified emoji sequence, for example `👍` or `👨‍👩‍👧‍👦`.
-        /// At most 32 code points, no whitespace or control characters and at
-        /// least one non-ASCII code point (the exact emoji set is checked by
+        /// At most 32 code points, no Unicode White_Space or control characters
+        /// and at least one non-ASCII code point; the pattern spells out exactly
+        /// the characters the server rejects (the exact emoji set is checked by
         /// the server; skin tones and ZWJ sequences are distinct emoji).
         #[schema(
             min_length = 1,
             max_length = 32,
-            pattern = r"[^\x00-\x7F]",
+            pattern = r"^[^\x00-\x20\x7F-\xA0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]*[^\x00-\xA0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000][^\x00-\x20\x7F-\xA0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]*$",
             example = "👍"
         )]
         value: String,
@@ -439,6 +442,9 @@ pub async fn get_note_reaction() -> ApiV1Error {
 ///
 /// Idempotent: repeating the same emoji returns `200` with the same state. A
 /// different emoji replaces the previous one (1 Profile, 1 Note, 1 reaction).
+/// Availability is checked first: an unavailable emoji is always `422`, even
+/// when it is the emoji already selected (the selection then stays, and can be
+/// removed with `DELETE`).
 #[utoipa::path(
     put,
     path = "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction",
@@ -456,7 +462,7 @@ pub async fn get_note_reaction() -> ApiV1Error {
         (status = 401, description = "Not authenticated (unauthorized)", body = ErrorBody),
         (status = 403, description = "The caller may not act as this Profile (forbidden)", body = ErrorBody),
         (status = 404, description = "Unknown Profile or Note (not_found)", body = ErrorBody),
-        (status = 422, description = "The emoji is unavailable (emoji_unavailable); the previous reaction stays", body = ErrorBody),
+        (status = 422, description = "The emoji is unavailable (emoji_unavailable), checked before the repeat no-op rule; the current reaction stays", body = ErrorBody),
         (status = 501, description = "Not implemented yet (not_implemented)", body = ErrorBody),
     )
 )]

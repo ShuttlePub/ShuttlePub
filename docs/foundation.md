@@ -174,7 +174,8 @@ Semantics (also in the `quick_reaction` module docs and the operation texts):
   unavailable emoji: `422 emoji_unavailable`.
 - Reaction `PUT` is idempotent and replaces a different previous emoji (the
   picker UI deletes first, but replacement is part of the API); an unavailable
-  emoji is `422 emoji_unavailable`. `DELETE` always answers `200` with
+  emoji is `422 emoji_unavailable`, checked before the repeat no-op rule (repeating
+  the already selected emoji after it became unavailable is also `422`). `DELETE` always answers `200` with
   `emoji: null`, also when nothing was selected and **also when the selected
   emoji is unavailable**. Reaction requests carry no revision (last write wins).
 - Other errors: `401 unauthorized`, `403 forbidden` (caller may not act as the
