@@ -1,0 +1,864 @@
+[
+  {
+    "name": "settings request: 0 favorites (clear)",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": []
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "settings request: 1 favorite",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍"
+        }
+      ]
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "settings request: 5 favorites, Unicode (ZWJ) and custom",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 3,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍"
+        },
+        {
+          "type": "unicode",
+          "value": "❤️"
+        },
+        {
+          "type": "unicode",
+          "value": "🎉"
+        },
+        {
+          "type": "custom",
+          "id": "blobcat"
+        },
+        {
+          "type": "unicode",
+          "value": "👨‍👩‍👧‍👦"
+        }
+      ]
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "settings request: 6 favorites exceeds maxItems",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 3,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍"
+        },
+        {
+          "type": "unicode",
+          "value": "❤️"
+        },
+        {
+          "type": "unicode",
+          "value": "🎉"
+        },
+        {
+          "type": "custom",
+          "id": "blobcat"
+        },
+        {
+          "type": "unicode",
+          "value": "👨‍👩‍👧‍👦"
+        },
+        {
+          "type": "unicode",
+          "value": "🔥"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: duplicate Unicode emoji violates uniqueItems",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍"
+        },
+        {
+          "type": "unicode",
+          "value": "❤️"
+        },
+        {
+          "type": "unicode",
+          "value": "👍"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: duplicate custom emoji violates uniqueItems",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "custom",
+          "id": "blobcat"
+        },
+        {
+          "type": "custom",
+          "id": "blobcat"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: skin tone variants are distinct emoji",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍"
+        },
+        {
+          "type": "unicode",
+          "value": "👍🏽"
+        }
+      ]
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "settings request: missing expected_revision",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "favorites": []
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: negative expected_revision",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": -1,
+      "favorites": []
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: missing favorites",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: unknown top level field",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [],
+      "extra": true
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: emoji with an extra field",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍",
+          "extra": 1
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: unknown emoji type",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "remote",
+          "value": "x"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: ASCII text is not an emoji",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "a"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: empty Unicode value",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": ""
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: custom id with a space",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "custom",
+          "id": "bad id"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: custom id too long",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "custom",
+          "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: Unicode value over 32 code points",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍👍"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings request: whitespace inside the emoji passes the schema but not server validation",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "request"
+    },
+    "body": {
+      "expected_revision": 0,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍 "
+        }
+      ]
+    },
+    "schema_valid": true,
+    "rust_valid": false
+  },
+  {
+    "name": "reaction request: Unicode emoji",
+    "target": {
+      "operation": "putNoteReaction",
+      "kind": "request"
+    },
+    "body": {
+      "emoji": {
+        "type": "unicode",
+        "value": "👍"
+      }
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction request: custom emoji",
+    "target": {
+      "operation": "putNoteReaction",
+      "kind": "request"
+    },
+    "body": {
+      "emoji": {
+        "type": "custom",
+        "id": "blobcat"
+      }
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction request: missing emoji",
+    "target": {
+      "operation": "putNoteReaction",
+      "kind": "request"
+    },
+    "body": {},
+    "schema_valid": false
+  },
+  {
+    "name": "reaction request: two emoji at once is not a contract",
+    "target": {
+      "operation": "putNoteReaction",
+      "kind": "request"
+    },
+    "body": {
+      "emoji": {
+        "type": "unicode",
+        "value": "👍"
+      },
+      "emojis": [
+        {
+          "type": "unicode",
+          "value": "❤️"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "reaction request: emoji as bare string",
+    "target": {
+      "operation": "putNoteReaction",
+      "kind": "request"
+    },
+    "body": {
+      "emoji": "👍"
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings response: never saved (revision 0, no favorites)",
+    "target": {
+      "operation": "getQuickReactionSettings",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "revision": 0,
+      "favorites": []
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "settings response: 5 favorites with an unavailable custom emoji",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "revision": 7,
+      "favorites": [
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "👍"
+          },
+          "availability": "available"
+        },
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "oldcat"
+          },
+          "availability": "unavailable",
+          "unavailable_reason": "deleted",
+          "shortcode": "oldcat"
+        },
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "🎉"
+          },
+          "availability": "available"
+        },
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "blobcat"
+          },
+          "availability": "available",
+          "shortcode": "blobcat",
+          "image_url": "https://emoji.shuttlepub.example/blobcat.png"
+        },
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "🔥"
+          },
+          "availability": "available"
+        }
+      ]
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "settings response: 6 favorites exceeds maxItems",
+    "target": {
+      "operation": "getQuickReactionSettings",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "revision": 7,
+      "favorites": [
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "👍"
+          },
+          "availability": "available"
+        },
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "❤️"
+          },
+          "availability": "available"
+        },
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "🎉"
+          },
+          "availability": "available"
+        },
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "🔥"
+          },
+          "availability": "available"
+        },
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "👀"
+          },
+          "availability": "available"
+        },
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "😂"
+          },
+          "availability": "available"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings response: unavailable reason is a closed set",
+    "target": {
+      "operation": "getQuickReactionSettings",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "revision": 1,
+      "favorites": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "x"
+          },
+          "availability": "unavailable",
+          "unavailable_reason": "gone"
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings response: availability is required",
+    "target": {
+      "operation": "getQuickReactionSettings",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "revision": 1,
+      "favorites": [
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "👍"
+          }
+        }
+      ]
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings response: revision is required",
+    "target": {
+      "operation": "getQuickReactionSettings",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "favorites": []
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "reaction response: not reacted (emoji is null)",
+    "target": {
+      "operation": "getNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+      "emoji": null
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction response: selected Unicode emoji",
+    "target": {
+      "operation": "putNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+      "emoji": {
+        "emoji": {
+          "type": "unicode",
+          "value": "👍"
+        },
+        "availability": "available"
+      }
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction response: selected emoji that became unavailable",
+    "target": {
+      "operation": "getNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+      "emoji": {
+        "emoji": {
+          "type": "custom",
+          "id": "oldcat"
+        },
+        "availability": "unavailable",
+        "unavailable_reason": "deleted",
+        "shortcode": "oldcat"
+      }
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction response: delete answers the unreacted state",
+    "target": {
+      "operation": "deleteNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+      "emoji": null
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction response: emoji key must be present",
+    "target": {
+      "operation": "getNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11"
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "reaction response: note_id must be a UUID",
+    "target": {
+      "operation": "getNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "note-1",
+      "emoji": null
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings conflict: revision_conflict carries current_revision",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "response",
+      "status": "409"
+    },
+    "body": {
+      "code": "revision_conflict",
+      "message": "expected_revision does not match the stored revision",
+      "current_revision": 5
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "settings conflict: current_revision is required",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "response",
+      "status": "409"
+    },
+    "body": {
+      "code": "revision_conflict",
+      "message": "stale"
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings conflict: code is fixed to revision_conflict",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "response",
+      "status": "409"
+    },
+    "body": {
+      "code": "conflict",
+      "message": "stale",
+      "current_revision": 5
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings 422: emoji_unavailable points at the offending element",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "response",
+      "status": "422"
+    },
+    "body": {
+      "code": "emoji_unavailable",
+      "message": "an emoji in the request is unavailable",
+      "details": [
+        {
+          "field": "/favorites/2",
+          "message": "emoji is unavailable"
+        }
+      ]
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction 422: emoji_unavailable",
+    "target": {
+      "operation": "putNoteReaction",
+      "kind": "response",
+      "status": "422"
+    },
+    "body": {
+      "code": "emoji_unavailable",
+      "message": "an emoji in the request is unavailable",
+      "details": [
+        {
+          "field": "/emoji",
+          "message": "emoji is unavailable"
+        }
+      ]
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "settings 400: invalid_request with field violations",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "response",
+      "status": "400"
+    },
+    "body": {
+      "code": "invalid_request",
+      "message": "the request failed validation",
+      "details": [
+        {
+          "field": "/favorites",
+          "message": "at most 5 favorites are allowed"
+        }
+      ]
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "settings 400: unknown error code",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "response",
+      "status": "400"
+    },
+    "body": {
+      "code": "too_many",
+      "message": "x"
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings 401: unauthorized",
+    "target": {
+      "operation": "getQuickReactionSettings",
+      "kind": "response",
+      "status": "401"
+    },
+    "body": {
+      "code": "unauthorized",
+      "message": "authentication is required"
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction 403: forbidden (caller may not act as the Profile)",
+    "target": {
+      "operation": "putNoteReaction",
+      "kind": "response",
+      "status": "403"
+    },
+    "body": {
+      "code": "forbidden",
+      "message": "not allowed to act as this profile"
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction 404: unknown Note",
+    "target": {
+      "operation": "deleteNoteReaction",
+      "kind": "response",
+      "status": "404"
+    },
+    "body": {
+      "code": "not_found",
+      "message": "note not found"
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "settings 501: explicit stub answer",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "response",
+      "status": "501"
+    },
+    "body": {
+      "code": "not_implemented",
+      "message": "this endpoint is defined by the API contract but not implemented yet"
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction 501: explicit stub answer",
+    "target": {
+      "operation": "getNoteReaction",
+      "kind": "response",
+      "status": "501"
+    },
+    "body": {
+      "code": "not_implemented",
+      "message": "this endpoint is defined by the API contract but not implemented yet"
+    },
+    "schema_valid": true
+  }
+]

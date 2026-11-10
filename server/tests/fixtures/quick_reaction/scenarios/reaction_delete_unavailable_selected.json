@@ -1,0 +1,96 @@
+{
+  "name": "reaction_delete_unavailable_selected",
+  "description": "A selected reaction whose emoji became unavailable is still shown, can always be removed, and cannot be selected again.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available"
+      },
+      "oldcat": {
+        "shortcode": "oldcat",
+        "availability": "unavailable",
+        "reason": "deleted"
+      },
+      "offcat": {
+        "shortcode": "offcat",
+        "availability": "unavailable",
+        "reason": "disabled"
+      }
+    },
+    "settings": {
+      "revision": 0,
+      "favorites": []
+    },
+    "reaction": {
+      "type": "custom",
+      "id": "offcat"
+    }
+  },
+  "steps": [
+    {
+      "operation": "getNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "custom",
+              "id": "offcat"
+            },
+            "availability": "unavailable",
+            "unavailable_reason": "disabled",
+            "shortcode": "offcat"
+          }
+        }
+      },
+      "note": "selected emoji is flagged unavailable"
+    },
+    {
+      "operation": "deleteNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": null
+        }
+      },
+      "note": "removal does not depend on availability"
+    },
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "custom",
+          "id": "offcat"
+        }
+      },
+      "expect": {
+        "status": 422,
+        "body": {
+          "code": "emoji_unavailable",
+          "message": "an emoji in the request is unavailable",
+          "details": [
+            {
+              "field": "/emoji",
+              "message": "emoji is unavailable"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "getNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": null
+        }
+      },
+      "note": "still unreacted"
+    }
+  ]
+}

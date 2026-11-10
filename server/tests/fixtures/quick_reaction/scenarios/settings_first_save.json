@@ -1,0 +1,108 @@
+{
+  "name": "settings_first_save",
+  "description": "A Profile that never saved reads as revision 0 with no favorites; the first save uses expected_revision 0 and mixes Unicode and custom emoji.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available"
+      },
+      "oldcat": {
+        "shortcode": "oldcat",
+        "availability": "unavailable",
+        "reason": "deleted"
+      },
+      "offcat": {
+        "shortcode": "offcat",
+        "availability": "unavailable",
+        "reason": "disabled"
+      }
+    },
+    "settings": {
+      "revision": 0,
+      "favorites": []
+    },
+    "reaction": null
+  },
+  "steps": [
+    {
+      "operation": "getQuickReactionSettings",
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 0,
+          "favorites": []
+        }
+      }
+    },
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 0,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "👍"
+          },
+          {
+            "type": "custom",
+            "id": "blobcat"
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 1,
+          "favorites": [
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "👍"
+              },
+              "availability": "available"
+            },
+            {
+              "emoji": {
+                "type": "custom",
+                "id": "blobcat"
+              },
+              "availability": "available",
+              "shortcode": "blobcat",
+              "image_url": "https://emoji.shuttlepub.example/blobcat.png"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "getQuickReactionSettings",
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 1,
+          "favorites": [
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "👍"
+              },
+              "availability": "available"
+            },
+            {
+              "emoji": {
+                "type": "custom",
+                "id": "blobcat"
+              },
+              "availability": "available",
+              "shortcode": "blobcat",
+              "image_url": "https://emoji.shuttlepub.example/blobcat.png"
+            }
+          ]
+        }
+      },
+      "note": "another device reads the same ordered list"
+    }
+  ]
+}

@@ -1,0 +1,164 @@
+{
+  "name": "settings_revision_conflict",
+  "description": "Two devices edit from the same revision: the second answers 409 revision_conflict with current_revision and succeeds after refetching.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available"
+      },
+      "oldcat": {
+        "shortcode": "oldcat",
+        "availability": "unavailable",
+        "reason": "deleted"
+      },
+      "offcat": {
+        "shortcode": "offcat",
+        "availability": "unavailable",
+        "reason": "disabled"
+      }
+    },
+    "settings": {
+      "revision": 4,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍"
+        }
+      ]
+    },
+    "reaction": null
+  },
+  "steps": [
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 4,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "👍"
+          },
+          {
+            "type": "unicode",
+            "value": "❤️"
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 5,
+          "favorites": [
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "👍"
+              },
+              "availability": "available"
+            },
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "❤️"
+              },
+              "availability": "available"
+            }
+          ]
+        }
+      },
+      "note": "device A"
+    },
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 4,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "👍"
+          },
+          {
+            "type": "unicode",
+            "value": "🎉"
+          }
+        ]
+      },
+      "expect": {
+        "status": 409,
+        "body": {
+          "code": "revision_conflict",
+          "message": "expected_revision does not match the stored revision",
+          "current_revision": 5
+        }
+      },
+      "note": "device B edited from the stale revision 4"
+    },
+    {
+      "operation": "getQuickReactionSettings",
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 5,
+          "favorites": [
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "👍"
+              },
+              "availability": "available"
+            },
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "❤️"
+              },
+              "availability": "available"
+            }
+          ]
+        }
+      },
+      "note": "device B refetches"
+    },
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 5,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "👍"
+          },
+          {
+            "type": "unicode",
+            "value": "🎉"
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 6,
+          "favorites": [
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "👍"
+              },
+              "availability": "available"
+            },
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "🎉"
+              },
+              "availability": "available"
+            }
+          ]
+        }
+      },
+      "note": "device B retries on the current revision"
+    }
+  ]
+}

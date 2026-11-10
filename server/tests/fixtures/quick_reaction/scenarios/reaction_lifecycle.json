@@ -1,0 +1,170 @@
+{
+  "name": "reaction_lifecycle",
+  "description": "Unreacted, selected, repeated, replaced and removed states of one Profile on one Note; every request is safely repeatable.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available"
+      },
+      "oldcat": {
+        "shortcode": "oldcat",
+        "availability": "unavailable",
+        "reason": "deleted"
+      },
+      "offcat": {
+        "shortcode": "offcat",
+        "availability": "unavailable",
+        "reason": "disabled"
+      }
+    },
+    "settings": {
+      "revision": 0,
+      "favorites": []
+    },
+    "reaction": null
+  },
+  "steps": [
+    {
+      "operation": "getNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": null
+        }
+      }
+    },
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "unicode",
+          "value": "👍"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "unicode",
+              "value": "👍"
+            },
+            "availability": "available"
+          }
+        }
+      }
+    },
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "unicode",
+          "value": "👍"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "unicode",
+              "value": "👍"
+            },
+            "availability": "available"
+          }
+        }
+      },
+      "note": "repeating the same PUT is a no-op"
+    },
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "unicode",
+          "value": "❤️"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "unicode",
+              "value": "❤️"
+            },
+            "availability": "available"
+          }
+        }
+      },
+      "note": "a different emoji replaces: still one reaction per Profile and Note"
+    },
+    {
+      "operation": "getNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "unicode",
+              "value": "❤️"
+            },
+            "availability": "available"
+          }
+        }
+      }
+    },
+    {
+      "operation": "deleteNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": null
+        }
+      }
+    },
+    {
+      "operation": "deleteNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": null
+        }
+      },
+      "note": "deleting again is not an error"
+    },
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "custom",
+          "id": "blobcat"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "custom",
+              "id": "blobcat"
+            },
+            "availability": "available",
+            "shortcode": "blobcat",
+            "image_url": "https://emoji.shuttlepub.example/blobcat.png"
+          }
+        }
+      },
+      "note": "the picker selects again after removal"
+    }
+  ]
+}

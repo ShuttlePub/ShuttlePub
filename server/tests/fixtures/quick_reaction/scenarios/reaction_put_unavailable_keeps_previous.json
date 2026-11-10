@@ -1,0 +1,93 @@
+{
+  "name": "reaction_put_unavailable_keeps_previous",
+  "description": "Selecting an unavailable emoji is refused and the previous reaction stays; a malformed identifier is a 400.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available"
+      },
+      "oldcat": {
+        "shortcode": "oldcat",
+        "availability": "unavailable",
+        "reason": "deleted"
+      },
+      "offcat": {
+        "shortcode": "offcat",
+        "availability": "unavailable",
+        "reason": "disabled"
+      }
+    },
+    "settings": {
+      "revision": 0,
+      "favorites": []
+    },
+    "reaction": {
+      "type": "unicode",
+      "value": "👍"
+    }
+  },
+  "steps": [
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "custom",
+          "id": "oldcat"
+        }
+      },
+      "expect": {
+        "status": 422,
+        "body": {
+          "code": "emoji_unavailable",
+          "message": "an emoji in the request is unavailable",
+          "details": [
+            {
+              "field": "/emoji",
+              "message": "emoji is unavailable"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "getNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "unicode",
+              "value": "👍"
+            },
+            "availability": "available"
+          }
+        }
+      }
+    },
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "unicode",
+          "value": " "
+        }
+      },
+      "expect": {
+        "status": 400,
+        "body": {
+          "code": "invalid_request",
+          "message": "the request failed validation",
+          "details": [
+            {
+              "field": "/emoji/value",
+              "message": "must be an emoji sequence of 1..=32 code points without whitespace or control characters"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

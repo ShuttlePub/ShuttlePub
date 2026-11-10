@@ -1,0 +1,178 @@
+{
+  "name": "settings_unavailable_favorite_is_kept",
+  "description": "A favorite that became unavailable stays in the list and is flagged; it may be kept while reordering but cannot be newly added.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available"
+      },
+      "oldcat": {
+        "shortcode": "oldcat",
+        "availability": "unavailable",
+        "reason": "deleted"
+      },
+      "offcat": {
+        "shortcode": "offcat",
+        "availability": "unavailable",
+        "reason": "disabled"
+      }
+    },
+    "settings": {
+      "revision": 3,
+      "favorites": [
+        {
+          "type": "custom",
+          "id": "blobcat"
+        },
+        {
+          "type": "unicode",
+          "value": "👍"
+        }
+      ]
+    },
+    "reaction": null
+  },
+  "steps": [
+    {
+      "mutate_emoji": {
+        "id": "blobcat",
+        "availability": "unavailable",
+        "reason": "deleted",
+        "note": "the custom emoji is deleted on the server"
+      }
+    },
+    {
+      "operation": "getQuickReactionSettings",
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 3,
+          "favorites": [
+            {
+              "emoji": {
+                "type": "custom",
+                "id": "blobcat"
+              },
+              "availability": "unavailable",
+              "unavailable_reason": "deleted",
+              "shortcode": "blobcat"
+            },
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "👍"
+              },
+              "availability": "available"
+            }
+          ]
+        }
+      },
+      "note": "not removed, not replaced"
+    },
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 3,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "👍"
+          },
+          {
+            "type": "custom",
+            "id": "blobcat"
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 4,
+          "favorites": [
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "👍"
+              },
+              "availability": "available"
+            },
+            {
+              "emoji": {
+                "type": "custom",
+                "id": "blobcat"
+              },
+              "availability": "unavailable",
+              "unavailable_reason": "deleted",
+              "shortcode": "blobcat"
+            }
+          ]
+        }
+      },
+      "note": "reordering keeps the unavailable favorite"
+    },
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 4,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "👍"
+          },
+          {
+            "type": "custom",
+            "id": "blobcat"
+          },
+          {
+            "type": "custom",
+            "id": "oldcat"
+          }
+        ]
+      },
+      "expect": {
+        "status": 422,
+        "body": {
+          "code": "emoji_unavailable",
+          "message": "an emoji in the request is unavailable",
+          "details": [
+            {
+              "field": "/favorites/2",
+              "message": "emoji is unavailable"
+            }
+          ]
+        }
+      },
+      "note": "newly adding an unavailable emoji is refused"
+    },
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 4,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "👍"
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 5,
+          "favorites": [
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "👍"
+              },
+              "availability": "available"
+            }
+          ]
+        }
+      },
+      "note": "dropping the unavailable favorite is the user's choice"
+    }
+  ]
+}

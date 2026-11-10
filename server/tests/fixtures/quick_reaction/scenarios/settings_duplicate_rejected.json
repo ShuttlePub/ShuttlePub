@@ -1,0 +1,134 @@
+{
+  "name": "settings_duplicate_rejected",
+  "description": "The same emoji twice is rejected, for Unicode and custom emoji alike; skin tone variants are different emoji.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available"
+      },
+      "oldcat": {
+        "shortcode": "oldcat",
+        "availability": "unavailable",
+        "reason": "deleted"
+      },
+      "offcat": {
+        "shortcode": "offcat",
+        "availability": "unavailable",
+        "reason": "disabled"
+      }
+    },
+    "settings": {
+      "revision": 0,
+      "favorites": []
+    },
+    "reaction": null
+  },
+  "steps": [
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 0,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "👍"
+          },
+          {
+            "type": "unicode",
+            "value": "❤️"
+          },
+          {
+            "type": "unicode",
+            "value": "👍"
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "body": {
+          "code": "invalid_request",
+          "message": "the request failed validation",
+          "details": [
+            {
+              "field": "/favorites/2",
+              "message": "duplicate of an earlier favorite"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 0,
+        "favorites": [
+          {
+            "type": "custom",
+            "id": "blobcat"
+          },
+          {
+            "type": "unicode",
+            "value": "👍"
+          },
+          {
+            "type": "custom",
+            "id": "blobcat"
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "body": {
+          "code": "invalid_request",
+          "message": "the request failed validation",
+          "details": [
+            {
+              "field": "/favorites/2",
+              "message": "duplicate of an earlier favorite"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 0,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "👍"
+          },
+          {
+            "type": "unicode",
+            "value": "👍🏽"
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 1,
+          "favorites": [
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "👍"
+              },
+              "availability": "available"
+            },
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "👍🏽"
+              },
+              "availability": "available"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

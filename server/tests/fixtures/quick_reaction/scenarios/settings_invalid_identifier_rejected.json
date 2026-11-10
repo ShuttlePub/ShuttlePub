@@ -1,0 +1,73 @@
+{
+  "name": "settings_invalid_identifier_rejected",
+  "description": "Malformed emoji identifiers are reported per element.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available"
+      },
+      "oldcat": {
+        "shortcode": "oldcat",
+        "availability": "unavailable",
+        "reason": "deleted"
+      },
+      "offcat": {
+        "shortcode": "offcat",
+        "availability": "unavailable",
+        "reason": "disabled"
+      }
+    },
+    "settings": {
+      "revision": 0,
+      "favorites": []
+    },
+    "reaction": null
+  },
+  "steps": [
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 0,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "a"
+          },
+          {
+            "type": "custom",
+            "id": "bad id"
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "body": {
+          "code": "invalid_request",
+          "message": "the request failed validation",
+          "details": [
+            {
+              "field": "/favorites/0/value",
+              "message": "must be an emoji sequence of 1..=32 code points without whitespace or control characters"
+            },
+            {
+              "field": "/favorites/1/id",
+              "message": "must be 1..=128 characters of A-Z a-z 0-9 _ . : @ -"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "getQuickReactionSettings",
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 0,
+          "favorites": []
+        }
+      }
+    }
+  ]
+}

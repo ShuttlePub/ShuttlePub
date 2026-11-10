@@ -5,6 +5,8 @@
 //! every contract route answers `501` with the `not_implemented` error code so
 //! that clients can never mistake a stub for a successful response.
 
+pub mod quick_reaction;
+
 use axum::{
     Json,
     http::StatusCode,
@@ -31,6 +33,11 @@ pub enum ErrorCode {
     NotFound,
     /// The request conflicts with the current resource state.
     Conflict,
+    /// The `expected_revision` of an optimistic update is stale; the body
+    /// carries the revision currently stored.
+    RevisionConflict,
+    /// An emoji needed by the request is unavailable (deleted or disabled).
+    EmojiUnavailable,
     /// The server failed unexpectedly.
     Internal,
     /// The route is part of the API contract but has no implementation yet.
@@ -45,7 +52,8 @@ impl ErrorCode {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Forbidden => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
-            Self::Conflict => StatusCode::CONFLICT,
+            Self::Conflict | Self::RevisionConflict => StatusCode::CONFLICT,
+            Self::EmojiUnavailable => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
             Self::NotImplemented => StatusCode::NOT_IMPLEMENTED,
         }
@@ -153,5 +161,7 @@ pub async fn get_status() -> ApiV1Error {
 /// same definition. Stub handlers must take no extractors so that they answer
 /// `501` regardless of the request.
 pub fn router() -> OpenApiRouter {
-    OpenApiRouter::new().routes(routes!(get_status))
+    OpenApiRouter::new()
+        .routes(routes!(get_status))
+        .merge(quick_reaction::router())
 }

@@ -129,3 +129,65 @@ regenerate and update the snapshot expectations in `server/tests/openapi.rs`.
 Stub handlers take no extractors so they answer `501` for any request. Errors
 reported by handlers use `ErrorBody` (`code`, `message`, optional `details`);
 framework-level 404/405 responses do not.
+
+## Quick reaction contract (`/api/v1`)
+
+Contract for decision D03 (favourite emoji at the top of the reaction picker,
+one reaction per Profile and Note). **Contract only: nothing is stored or
+synchronised yet.** All routes below are explicit `501 not_implemented` stubs
+(`server/src/api_v1/quick_reaction.rs`); the `200`/`4xx` answers documented in
+the schema describe the behaviour a future implementation must follow. The
+legacy development route `POST /api/notes/{id}/reactions` (one reaction value
+per actor) is a separate development API: it is neither changed nor part of
+this contract or of `openapi/shuttlepub.json`. The UI-facing source of truth is
+the generated schema only.
+
+| Method | Path | operationId | Request / success body |
+| --- | --- | --- | --- |
+| GET | `/api/v1/profiles/{profile_nanoid}/quick-reaction-settings` | `getQuickReactionSettings` | - / `QuickReactionSettings` |
+| PUT | `/api/v1/profiles/{profile_nanoid}/quick-reaction-settings` | `putQuickReactionSettings` | `UpdateQuickReactionSettings` / `QuickReactionSettings` |
+| GET | `/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction` | `getNoteReaction` | - / `ReactionState` |
+| PUT | `/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction` | `putNoteReaction` | `PutReaction` / `ReactionState` |
+| DELETE | `/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction` | `deleteNoteReaction` | - / `ReactionState` |
+
+Identifiers: `profile_nanoid` is Emumet's public Profile identifier (its
+`/api/v1/profiles/{profile_nanoid}` routes use the same value; default nanoid
+alphabet `A-Za-z0-9_-`, 1..=64 characters). `note_id` is the ShuttlePub `NoteId`
+UUID. Emoji are `EmojiRef`: `{"type":"unicode","value":"👍"}` or
+`{"type":"custom","id":"<stable id>"}`; the server answers `EmojiView`
+(identity + `availability` + optional `unavailable_reason`, `shortcode`,
+`image_url`). All five operations use the `bearer_auth` HTTP bearer scheme.
+
+Semantics (also in the `quick_reaction` module docs and the operation texts):
+
+- Favourites are an ordered list of at most 5 pairwise distinct emoji, shared by
+  all devices of the Profile. A Profile that never saved reads as revision `0`
+  with no favourites (no server-managed defaults).
+- Settings `PUT` replaces the whole list and carries `expected_revision`. If the
+  list equals the stored one the stored settings are returned with `200` and
+  the revision is not bumped (so a retry after a lost response succeeds with the
+  same result); otherwise a stale revision is `409 revision_conflict` with
+  `current_revision`. Six or more favourites, duplicates and malformed
+  identifiers are `400 invalid_request` with JSON-pointer `details`.
+- A favourite that became unavailable is kept and flagged (never deleted or
+  substituted). `PUT` may keep it (reordering) but cannot newly add an
+  unavailable emoji: `422 emoji_unavailable`.
+- Reaction `PUT` is idempotent and replaces a different previous emoji (the
+  picker UI deletes first, but replacement is part of the API); an unavailable
+  emoji is `422 emoji_unavailable`. `DELETE` always answers `200` with
+  `emoji: null`, also when nothing was selected and **also when the selected
+  emoji is unavailable**. Reaction requests carry no revision (last write wins).
+- Other errors: `401 unauthorized`, `403 forbidden` (caller may not act as the
+  Profile), `404 not_found` (unknown Profile or Note), always the common
+  `ErrorBody`. `ErrorCode` gained `revision_conflict` (409) and
+  `emoji_unavailable` (422) for this contract.
+
+Tests: `server/tests/quick_reaction.rs` covers type serialization/validation,
+schema constraints (`maxItems: 5`, `uniqueItems`), fixtures and the explicit
+`501` for every route. `tests/fixtures/quick_reaction/schema_cases.json` holds
+schema valid/invalid payloads (0/5/6 favourites, duplicates, unavailable,
+conflict, errors) and `scenarios/*.json` hold ordered request/response
+sequences (retry, conflict, unavailable favourite, deleting an unavailable
+reaction). Every payload is validated against the generated schema, and the
+scenarios are replayed against a small reference model of the semantics above
+that lives in the test only.
