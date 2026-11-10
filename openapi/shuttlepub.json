@@ -14,6 +14,120 @@
         ],
         "type": "object"
       },
+      "EmojiAvailability": {
+        "description": "Whether an emoji can currently be used.",
+        "enum": [
+          "available",
+          "unavailable"
+        ],
+        "type": "string"
+      },
+      "EmojiRef": {
+        "description": "Identity of an emoji. Two references are the same emoji when they are equal\nas JSON values, which is why this type carries no display data.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "A Unicode emoji, identified by its code point sequence.",
+            "properties": {
+              "type": {
+                "enum": [
+                  "unicode"
+                ],
+                "type": "string"
+              },
+              "value": {
+                "description": "The fully qualified emoji sequence, for example `👍` or `👨‍👩‍👧‍👦`.\nAt most 32 code points, no Unicode White_Space or control characters\nand at least one non-ASCII code point; the pattern spells out exactly\nthe characters the server rejects (the exact emoji set is checked by\nthe server; skin tones and ZWJ sequences are distinct emoji).",
+                "example": "👍",
+                "maxLength": 32,
+                "minLength": 1,
+                "pattern": "^[^\\x00-\\x20\\x7F-\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]*[^\\x00-\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000][^\\x00-\\x20\\x7F-\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]*$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "value",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "A custom emoji, identified by the server's stable emoji identifier.\nThe identifier survives deletion, so an unavailable emoji keeps its\nidentity.",
+            "properties": {
+              "id": {
+                "description": "Stable identifier of the custom emoji (not the shortcode).",
+                "example": "blobcat",
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.:@-]+$",
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "custom"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "EmojiUnavailableReason": {
+        "description": "Why an emoji is unavailable.",
+        "enum": [
+          "deleted",
+          "disabled"
+        ],
+        "type": "string"
+      },
+      "EmojiView": {
+        "description": "An emoji as returned by the server: identity plus availability and display data.",
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/EmojiAvailability",
+            "description": "Current availability. Unicode emoji are always `available`."
+          },
+          "emoji": {
+            "$ref": "#/components/schemas/EmojiRef",
+            "description": "Identity of the emoji."
+          },
+          "image_url": {
+            "description": "Image of a custom emoji when one is still served; absent for Unicode\nemoji and for deleted custom emoji.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shortcode": {
+            "description": "Display shortcode of a custom emoji, without colons; absent for Unicode emoji.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "unavailable_reason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EmojiUnavailableReason",
+                "description": "Present only when `availability` is `unavailable`."
+              }
+            ]
+          }
+        },
+        "required": [
+          "emoji",
+          "availability"
+        ],
+        "type": "object"
+      },
       "ErrorBody": {
         "description": "Structured error body returned by `/api/v1` handlers for every error they report.\n\nResponses produced by the framework itself (unmatched route, wrong method)\ndo not go through a handler and therefore do not use this body.",
         "properties": {
@@ -47,6 +161,8 @@
           "forbidden",
           "not_found",
           "conflict",
+          "revision_conflict",
+          "emoji_unavailable",
           "internal",
           "not_implemented"
         ],
@@ -104,6 +220,144 @@
           }
         },
         "type": "object"
+      },
+      "ProfileNanoid": {
+        "description": "Public identifier of a posting Profile (Emumet's `profile_nanoid`).",
+        "example": "V1StGXR8_Z5jdHi6B-myT",
+        "pattern": "^[A-Za-z0-9_-]{1,64}$",
+        "type": "string"
+      },
+      "PutReaction": {
+        "additionalProperties": false,
+        "description": "Request body selecting the reaction of a Profile on a Note.",
+        "properties": {
+          "emoji": {
+            "$ref": "#/components/schemas/EmojiRef",
+            "description": "The emoji to select; replaces any previous selection."
+          }
+        },
+        "required": [
+          "emoji"
+        ],
+        "type": "object"
+      },
+      "QuickReactionSettings": {
+        "description": "Quick reaction settings of a Profile.",
+        "properties": {
+          "favorites": {
+            "description": "Ordered favourites, at most 5 and pairwise distinct by `emoji`. Unavailable favourites are kept and flagged, never removed silently.",
+            "items": {
+              "$ref": "#/components/schemas/EmojiView"
+            },
+            "maxItems": 5,
+            "type": "array"
+          },
+          "revision": {
+            "description": "Monotonic revision, `0` for a Profile that never saved settings. It\nincreases by one whenever the stored favourites change.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "favorites"
+        ],
+        "type": "object"
+      },
+      "ReactionState": {
+        "description": "The reaction a Profile has on a Note.",
+        "properties": {
+          "emoji": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EmojiView",
+                "description": "The selected emoji, or `null` when the Profile has not reacted. The\nemoji may be `unavailable`; it can still be removed."
+              }
+            ]
+          },
+          "note_id": {
+            "description": "The Note the reaction belongs to.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note_id",
+          "emoji"
+        ],
+        "type": "object"
+      },
+      "RevisionConflictBody": {
+        "description": "`409` body for a stale `expected_revision`: the common `ErrorBody` fields\nwith `code` fixed to `revision_conflict`, plus the stored revision.",
+        "properties": {
+          "code": {
+            "description": "Always `revision_conflict`.",
+            "enum": [
+              "revision_conflict"
+            ],
+            "type": "string"
+          },
+          "current_revision": {
+            "description": "The revision currently stored; refetch the settings and retry.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "details": {
+            "description": "Optional per-field problems.",
+            "items": {
+              "$ref": "#/components/schemas/FieldViolation"
+            },
+            "type": "array"
+          },
+          "message": {
+            "description": "Human readable description intended for developers, not end users.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "current_revision"
+        ],
+        "type": "object"
+      },
+      "UpdateQuickReactionSettings": {
+        "additionalProperties": false,
+        "description": "Request body replacing the favourites of a Profile.",
+        "properties": {
+          "expected_revision": {
+            "description": "The revision the client last saw. Use `0` for the first save.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "favorites": {
+            "description": "The complete new ordered list: 0..=5 pairwise distinct emoji. An empty list clears the favourites.",
+            "items": {
+              "$ref": "#/components/schemas/EmojiRef"
+            },
+            "maxItems": 5,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "expected_revision",
+          "favorites"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearer_auth": {
+        "description": "Bearer access token of the signed-in user. The caller must be allowed to act as the Profile in the path.",
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -118,6 +372,518 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction": {
+      "delete": {
+        "description": "Idempotent and independent of emoji availability: answers `200` with\n`emoji: null` also when nothing was selected, and also when the selected\nemoji has become unavailable.",
+        "operationId": "deleteNoteReaction",
+        "parameters": [
+          {
+            "description": "Reacting Profile (Emumet profile_nanoid)",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          },
+          {
+            "description": "Note the reaction belongs to",
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReactionState"
+                }
+              }
+            },
+            "description": "Unreacted state (emoji null), including a repeated delete. Contract only: never returned while the endpoint is a stub"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Malformed profile_nanoid (invalid_request)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not authenticated (unauthorized)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The caller may not act as this Profile (forbidden)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unknown Profile or Note (not_found); never because no reaction exists"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not implemented yet (not_implemented)"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Remove the reaction of a Profile on a Note (stub: always answers 501)",
+        "tags": [
+          "quick-reaction"
+        ]
+      },
+      "get": {
+        "operationId": "getNoteReaction",
+        "parameters": [
+          {
+            "description": "Reacting Profile (Emumet profile_nanoid)",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          },
+          {
+            "description": "Note the reaction belongs to",
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReactionState"
+                }
+              }
+            },
+            "description": "Selected emoji, or emoji null when not reacted. Contract only: never returned while the endpoint is a stub"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Malformed profile_nanoid (invalid_request)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not authenticated (unauthorized)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The caller may not act as this Profile (forbidden)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unknown Profile or Note (not_found)"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not implemented yet (not_implemented)"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Get the reaction of a Profile on a Note (stub: always answers 501)",
+        "tags": [
+          "quick-reaction"
+        ]
+      },
+      "put": {
+        "description": "Idempotent: repeating the same emoji returns `200` with the same state. A\ndifferent emoji replaces the previous one (1 Profile, 1 Note, 1 reaction).\nAvailability is checked first: an unavailable emoji is always `422`, even\nwhen it is the emoji already selected (the selection then stays, and can be\nremoved with `DELETE`).",
+        "operationId": "putNoteReaction",
+        "parameters": [
+          {
+            "description": "Reacting Profile (Emumet profile_nanoid)",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          },
+          {
+            "description": "Note the reaction belongs to",
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutReaction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReactionState"
+                }
+              }
+            },
+            "description": "State after selecting (also for a repeated or replacing request). Contract only: never returned while the endpoint is a stub"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Malformed emoji identifier or profile_nanoid (invalid_request with details)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not authenticated (unauthorized)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The caller may not act as this Profile (forbidden)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unknown Profile or Note (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The emoji is unavailable (emoji_unavailable), checked before the repeat no-op rule; the current reaction stays"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not implemented yet (not_implemented)"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Select the reaction of a Profile on a Note (stub: always answers 501)",
+        "tags": [
+          "quick-reaction"
+        ]
+      }
+    },
+    "/api/v1/profiles/{profile_nanoid}/quick-reaction-settings": {
+      "get": {
+        "operationId": "getQuickReactionSettings",
+        "parameters": [
+          {
+            "description": "Posting Profile (Emumet profile_nanoid)",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuickReactionSettings"
+                }
+              }
+            },
+            "description": "Settings; a never-saved Profile reads as revision 0 with no favorites. Contract only: never returned while the endpoint is a stub"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Malformed profile_nanoid (invalid_request)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not authenticated (unauthorized)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The caller may not act as this Profile (forbidden)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unknown Profile (not_found)"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not implemented yet (not_implemented)"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Get the quick reaction settings of a Profile (stub: always answers 501)",
+        "tags": [
+          "quick-reaction"
+        ]
+      },
+      "put": {
+        "description": "Full replacement guarded by `expected_revision`. Idempotent retry: when\n`favorites` equal the stored list the stored settings are returned with\n`200` and the revision is unchanged, whatever `expected_revision` is.\nOtherwise a revision mismatch is `409 revision_conflict`.",
+        "operationId": "putQuickReactionSettings",
+        "parameters": [
+          {
+            "description": "Posting Profile (Emumet profile_nanoid)",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateQuickReactionSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuickReactionSettings"
+                }
+              }
+            },
+            "description": "Stored settings after the update (new revision), or unchanged settings for an idempotent retry. Contract only: never returned while the endpoint is a stub"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "More than 5 favorites, duplicates, malformed emoji identifiers or profile_nanoid (invalid_request with details)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not authenticated (unauthorized)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The caller may not act as this Profile (forbidden)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unknown Profile (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevisionConflictBody"
+                }
+              }
+            },
+            "description": "expected_revision is stale (revision_conflict); current_revision tells the stored revision"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A newly added emoji is unavailable (emoji_unavailable); favorites already stored may stay (details point at the offending /favorites/{index})"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not implemented yet (not_implemented)"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Replace the quick reaction settings of a Profile (stub: always answers 501)",
+        "tags": [
+          "quick-reaction"
+        ]
+      }
+    },
     "/api/v1/status": {
       "get": {
         "operationId": "getApiStatus",
@@ -154,6 +920,10 @@
     {
       "description": "Service level information",
       "name": "meta"
+    },
+    {
+      "description": "Quick reaction favourites per Profile and the reaction of a Profile on a Note. Contract only: stored nowhere, every route answers 501.",
+      "name": "quick-reaction"
     }
   ]
 }

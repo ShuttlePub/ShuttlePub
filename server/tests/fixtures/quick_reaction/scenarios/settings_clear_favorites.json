@@ -1,0 +1,68 @@
+{
+  "name": "settings_clear_favorites",
+  "description": "An empty list clears the favorites (picker shows no favorites row); clearing twice is a no-op.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available"
+      },
+      "oldcat": {
+        "shortcode": "oldcat",
+        "availability": "unavailable",
+        "reason": "deleted"
+      },
+      "offcat": {
+        "shortcode": "offcat",
+        "availability": "unavailable",
+        "reason": "disabled"
+      }
+    },
+    "settings": {
+      "revision": 2,
+      "favorites": [
+        {
+          "type": "unicode",
+          "value": "👍"
+        },
+        {
+          "type": "unicode",
+          "value": "❤️"
+        }
+      ]
+    },
+    "reaction": null
+  },
+  "steps": [
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 2,
+        "favorites": []
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 3,
+          "favorites": []
+        }
+      }
+    },
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 2,
+        "favorites": []
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 3,
+          "favorites": []
+        }
+      },
+      "note": "retry of the clear"
+    }
+  ]
+}

@@ -17,7 +17,7 @@ serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
 axum = "0.8"
-utoipa = "5"
+utoipa = { version = "5", features = ["uuid"] }
 utoipa-axum = "0.2"
 http-body-util = "0.1"
 tracing = "0.1"
@@ -25,6 +25,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
+jsonschema = { version = "0.52", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [lints]

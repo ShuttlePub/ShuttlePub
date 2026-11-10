@@ -110,7 +110,34 @@ fn route_and_schema_snapshot() -> TestResult {
     let spec: Value = serde_json::from_str(&server::openapi::render()?)?;
     assert_eq!(
         operations(&spec),
-        vec![("GET".into(), "/api/v1/status".into(), "getApiStatus".into())]
+        vec![
+            (
+                "DELETE".into(),
+                "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction".into(),
+                "deleteNoteReaction".into()
+            ),
+            (
+                "GET".into(),
+                "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction".into(),
+                "getNoteReaction".into()
+            ),
+            (
+                "PUT".into(),
+                "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction".into(),
+                "putNoteReaction".into()
+            ),
+            (
+                "GET".into(),
+                "/api/v1/profiles/{profile_nanoid}/quick-reaction-settings".into(),
+                "getQuickReactionSettings".into()
+            ),
+            (
+                "PUT".into(),
+                "/api/v1/profiles/{profile_nanoid}/quick-reaction-settings".into(),
+                "putQuickReactionSettings".into()
+            ),
+            ("GET".into(), "/api/v1/status".into(), "getApiStatus".into()),
+        ]
     );
     let schemas: Vec<&str> = spec["components"]["schemas"]
         .as_object()
@@ -122,11 +149,21 @@ fn route_and_schema_snapshot() -> TestResult {
         schemas,
         [
             "ApiStatus",
+            "EmojiAvailability",
+            "EmojiRef",
+            "EmojiUnavailableReason",
+            "EmojiView",
             "ErrorBody",
             "ErrorCode",
             "FieldViolation",
             "PageInfo",
-            "PageParams"
+            "PageParams",
+            "ProfileNanoid",
+            "PutReaction",
+            "QuickReactionSettings",
+            "ReactionState",
+            "RevisionConflictBody",
+            "UpdateQuickReactionSettings"
         ]
     );
     assert_eq!(
@@ -137,6 +174,8 @@ fn route_and_schema_snapshot() -> TestResult {
             "forbidden",
             "not_found",
             "conflict",
+            "revision_conflict",
+            "emoji_unavailable",
             "internal",
             "not_implemented"
         ])
@@ -223,11 +262,12 @@ async fn single_registration_reaches_router_and_schema() -> TestResult {
 /// would serve a path that the schema never lists.
 #[test]
 fn contract_routes_are_not_registered_outside_routes_macro() -> TestResult {
-    let source =
-        std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/api_v1.rs"))?;
-    assert!(
-        !source.contains(".route("),
-        "use routes! instead of .route("
-    );
+    for file in ["src/api_v1.rs", "src/api_v1/quick_reaction.rs"] {
+        let source = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(file))?;
+        assert!(
+            !source.contains(".route("),
+            "{file}: use routes! instead of .route("
+        );
+    }
     Ok(())
 }
