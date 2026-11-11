@@ -1,0 +1,95 @@
+{
+  "before": {
+    "likes": 7,
+    "emoji": [
+      {
+        "emoji": {
+          "type": "unicode",
+          "value": "👍"
+        },
+        "count": 3
+      },
+      {
+        "emoji": {
+          "type": "custom",
+          "id": "blobcat"
+        },
+        "count": 2
+      }
+    ]
+  },
+  "after_block": {
+    "likes": 7,
+    "emoji": [
+      {
+        "emoji": {
+          "type": "unicode",
+          "value": "👍"
+        },
+        "count": 3
+      },
+      {
+        "emoji": {
+          "type": "custom",
+          "id": "blobcat"
+        },
+        "count": 2
+      }
+    ]
+  },
+  "rejected_attempts": [
+    {
+      "operation": "like",
+      "result": {
+        "outcome": "rejected",
+        "rejected": {
+          "operation": "like",
+          "control": {
+            "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+            "domain": "blocked.example",
+            "mode": "block",
+            "revision": 4
+          }
+        }
+      }
+    },
+    {
+      "operation": "emoji_reaction",
+      "result": {
+        "outcome": "rejected",
+        "rejected": {
+          "operation": "emoji_reaction",
+          "control": {
+            "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+            "domain": "blocked.example",
+            "mode": "block",
+            "revision": 4
+          },
+          "emoji": {
+            "type": "unicode",
+            "value": "👍"
+          }
+        }
+      }
+    }
+  ],
+  "after_rejections": {
+    "likes": 7,
+    "emoji": [
+      {
+        "emoji": {
+          "type": "unicode",
+          "value": "👍"
+        },
+        "count": 3
+      },
+      {
+        "emoji": {
+          "type": "custom",
+          "id": "blobcat"
+        },
+        "count": 2
+      }
+    ]
+  }
+}

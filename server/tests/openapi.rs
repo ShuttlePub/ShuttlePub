@@ -112,6 +112,26 @@ fn route_and_schema_snapshot() -> TestResult {
         operations(&spec),
         vec![
             (
+                "GET".into(),
+                "/api/v1/profiles/{profile_nanoid}/notes/search".into(),
+                "searchPersonalNotes".into()
+            ),
+            (
+                "GET".into(),
+                "/api/v1/profiles/{profile_nanoid}/notes/{note_id}".into(),
+                "getPersonalNote".into()
+            ),
+            (
+                "PUT".into(),
+                "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/like".into(),
+                "putPersonalLike".into()
+            ),
+            (
+                "POST".into(),
+                "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/quotes".into(),
+                "createPersonalQuote".into()
+            ),
+            (
                 "DELETE".into(),
                 "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction".into(),
                 "deleteNoteReaction".into()
@@ -127,6 +147,26 @@ fn route_and_schema_snapshot() -> TestResult {
                 "putNoteReaction".into()
             ),
             (
+                "POST".into(),
+                "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/replies".into(),
+                "createPersonalReply".into()
+            ),
+            (
+                "POST".into(),
+                "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reposts".into(),
+                "createPersonalRepost".into()
+            ),
+            (
+                "POST".into(),
+                "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reveal".into(),
+                "revealPersonalNote".into()
+            ),
+            (
+                "GET".into(),
+                "/api/v1/profiles/{profile_nanoid}/notifications".into(),
+                "getPersonalContentNotifications".into()
+            ),
+            (
                 "GET".into(),
                 "/api/v1/profiles/{profile_nanoid}/quick-reaction-settings".into(),
                 "getQuickReactionSettings".into()
@@ -135,6 +175,11 @@ fn route_and_schema_snapshot() -> TestResult {
                 "PUT".into(),
                 "/api/v1/profiles/{profile_nanoid}/quick-reaction-settings".into(),
                 "putQuickReactionSettings".into()
+            ),
+            (
+                "GET".into(),
+                "/api/v1/profiles/{profile_nanoid}/timeline".into(),
+                "getPersonalTimeline".into()
             ),
             ("GET".into(), "/api/v1/status".into(), "getApiStatus".into()),
         ]
@@ -149,21 +194,60 @@ fn route_and_schema_snapshot() -> TestResult {
         schemas,
         [
             "ApiStatus",
+            "BlockingDomainControlRef",
+            "ContentNotification",
+            "ContentNotificationsResponse",
+            "ContentPageInfo",
+            "ContentRestriction",
+            "ControlDomain",
+            "DirectItem",
+            "DirectNoteResponse",
+            "DomainBlockMode",
+            "DomainControlMode",
+            "DomainControlRef",
+            "DomainOperationPermission",
+            "EmbeddedNotePresentation",
             "EmojiAvailability",
+            "EmojiReactionCount",
+            "EmojiReactionDomainBlock",
+            "EmojiReactionOperation",
             "EmojiRef",
             "EmojiUnavailableReason",
             "EmojiView",
             "ErrorBody",
             "ErrorCode",
+            "FeedItem",
             "FieldViolation",
+            "InboundEmojiReactionRejection",
+            "InboundLikeRejection",
+            "InboundQuoteRejection",
+            "InboundReplyRejection",
+            "InboundRepostRejection",
+            "LikeDomainBlock",
+            "LikeOperation",
+            "NoteContent",
+            "NotePresentation",
+            "NoteSearchResponse",
+            "OutboundDomainBlock",
             "PageInfo",
             "PageParams",
+            "PostComment",
+            "PostOperationAvailability",
             "ProfileNanoid",
             "PutReaction",
             "QuickReactionSettings",
+            "QuoteDomainBlock",
+            "QuoteOperation",
+            "ReactionCounts",
             "ReactionState",
+            "RejectedOutcome",
+            "ReplyDomainBlock",
+            "ReplyOperation",
+            "RepostDomainBlock",
+            "RepostOperation",
             "RevisionConflictBody",
-            "UpdateQuickReactionSettings"
+            "TimelineResponse",
+            "UpdateQuickReactionSettings",
         ]
     );
     assert_eq!(
@@ -262,7 +346,11 @@ async fn single_registration_reaches_router_and_schema() -> TestResult {
 /// would serve a path that the schema never lists.
 #[test]
 fn contract_routes_are_not_registered_outside_routes_macro() -> TestResult {
-    for file in ["src/api_v1.rs", "src/api_v1/quick_reaction.rs"] {
+    for file in [
+        "src/api_v1.rs",
+        "src/api_v1/quick_reaction.rs",
+        "src/api_v1/personal_domain.rs",
+    ] {
         let source = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(file))?;
         assert!(
             !source.contains(".route("),

@@ -5,6 +5,7 @@
 //! every contract route answers `501` with the `not_implemented` error code so
 //! that clients can never mistake a stub for a successful response.
 
+pub mod personal_domain;
 pub mod quick_reaction;
 
 use axum::{
@@ -82,6 +83,10 @@ pub struct ErrorBody {
     /// Optional per-field problems, mainly for `invalid_request`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub details: Vec<FieldViolation>,
+    /// Optional S8 outbound block refusal. code remains forbidden (403); absent
+    /// for all existing S0/S3 errors. No mutation, implicit unblock or Undo.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub domain_block: Option<personal_domain::OutboundDomainBlock>,
 }
 
 /// Error response: an [`ErrorBody`] with the HTTP status implied by its code.
@@ -94,6 +99,7 @@ impl ApiV1Error {
             code,
             message: message.into(),
             details: Vec::new(),
+            domain_block: None,
         })
     }
 
@@ -164,4 +170,5 @@ pub fn router() -> OpenApiRouter {
     OpenApiRouter::new()
         .routes(routes!(get_status))
         .merge(quick_reaction::router())
+        .merge(personal_domain::router())
 }

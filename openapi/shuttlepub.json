@@ -14,11 +14,402 @@
         ],
         "type": "object"
       },
+      "BlockingDomainControlRef": {
+        "additionalProperties": false,
+        "description": "The blocking E8 policy snapshot. Changing this requires an explicit Emumet\ndomain-controls update; a post operation or reveal never unblocks implicitly.",
+        "properties": {
+          "domain": {
+            "$ref": "#/components/schemas/ControlDomain"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/DomainBlockMode"
+          },
+          "profile_id": {
+            "$ref": "#/components/schemas/ProfileNanoid"
+          },
+          "revision": {
+            "description": "The same E8 int64 monotonic revision, never minted by ShuttlePub.",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profile_id",
+          "domain",
+          "mode",
+          "revision"
+        ],
+        "type": "object"
+      },
+      "ContentNotification": {
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/FeedItem"
+          },
+          "notification_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "unread": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "notification_id",
+          "item",
+          "unread"
+        ],
+        "type": "object"
+      },
+      "ContentNotificationsResponse": {
+        "additionalProperties": false,
+        "description": "Only visible notifications contribute to unread_count. No hidden marker,\ncount, explanation or push/history recall guarantee is exposed here.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentNotification"
+            },
+            "type": "array"
+          },
+          "page": {
+            "$ref": "#/components/schemas/ContentPageInfo"
+          },
+          "profile_id": {
+            "$ref": "#/components/schemas/ProfileNanoid"
+          },
+          "unread_count": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profile_id",
+          "items",
+          "unread_count",
+          "page"
+        ],
+        "type": "object"
+      },
+      "ContentPageInfo": {
+        "additionalProperties": false,
+        "description": "S8 collection cursor only. Closed metadata prevents hidden-count/annotation\nextensions; opaque cursors must not disclose suppressed identities or counts.",
+        "properties": {
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ContentRestriction": {
+        "description": "Independent content gates. Reveal does not clear CW/sensitive, deletion or\nviewing permission. A restricted response carries no gated content.",
+        "enum": [
+          "cw",
+          "sensitive",
+          "deleted",
+          "visibility"
+        ],
+        "type": "string"
+      },
+      "ControlDomain": {
+        "description": "E8 DomainControlResponse.domain, not a second normalizer. Already normalized\nlowercase ASCII/IDNA A-label host; UTS #46 non-transitional; remove one trailing\ndot. Exact match: example.com does not include sub.example.com. E8 rejects\ninvalid inputs with 422. Match only Emumet D8P ControlDomain::from_actor_id's\nverified canonical actor-ID host, never display acct, username or asserted domain.",
+        "type": "string"
+      },
+      "DirectItem": {
+        "description": "Explicitly revealed item. Boost-wrapper direct reveal is undecided and not\npart of S8 (the original note URL uses ordinary single-note reveal).\nOperations concern its own author/target, NOT the\ndomain of an embedded quote. The unblocked quoter remains actionable.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "post"
+                ],
+                "type": "string"
+              },
+              "note": {
+                "$ref": "#/components/schemas/NoteContent"
+              }
+            },
+            "required": [
+              "note",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "reply"
+                ],
+                "type": "string"
+              },
+              "note": {
+                "$ref": "#/components/schemas/NoteContent"
+              }
+            },
+            "required": [
+              "note",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "quote"
+                ],
+                "type": "string"
+              },
+              "note": {
+                "$ref": "#/components/schemas/NoteContent"
+              },
+              "quoted_note": {
+                "$ref": "#/components/schemas/EmbeddedNotePresentation"
+              }
+            },
+            "required": [
+              "note",
+              "quoted_note",
+              "kind"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "DirectNoteResponse": {
+        "additionalProperties": false,
+        "description": "Profile scoped direct view. Initial GET is hidden for a controlled domain.\nPOST reveal is explicit and applies only to this note in the current page.\nNever persist or sync reveal, never change E8 revision. Hide discards the\npage-local result; reload/revisit uses GET and hides again. Reveal never\nchanges another note, embedded content, block, CW/sensitive or viewing rights.",
+        "properties": {
+          "presentation": {
+            "$ref": "#/components/schemas/NotePresentation"
+          },
+          "profile_id": {
+            "$ref": "#/components/schemas/ProfileNanoid"
+          }
+        },
+        "required": [
+          "profile_id",
+          "presentation"
+        ],
+        "type": "object"
+      },
+      "DomainBlockMode": {
+        "description": "Block-only projection of E8 mode; not an additional policy mode.",
+        "enum": [
+          "block"
+        ],
+        "type": "string"
+      },
+      "DomainControlMode": {
+        "description": "E8 DomainControlMode, verbatim: mute suppresses display only; block also\nrefuses new operations in both directions. Never a new ShuttlePub setting.",
+        "enum": [
+          "mute",
+          "block"
+        ],
+        "type": "string"
+      },
+      "DomainControlRef": {
+        "additionalProperties": false,
+        "description": "Immutable observation of E8 DomainControlResponse, not a local policy copy.\nNo created_at/updated_at needed for content presentation.",
+        "properties": {
+          "domain": {
+            "$ref": "#/components/schemas/ControlDomain"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/DomainControlMode"
+          },
+          "profile_id": {
+            "$ref": "#/components/schemas/ProfileNanoid",
+            "description": "E8 profile_id (Profile nanoid); same value as path profile_nanoid and\nProfileResponse.id. Never Account ID, actor URL or nullable username."
+          },
+          "revision": {
+            "description": "E8 int64 revision, starts at 1. Create/replace/delete/recreate advance it;\ntombstones prevent reuse. Not S3 settings revision or a reveal revision.",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profile_id",
+          "domain",
+          "mode",
+          "revision"
+        ],
+        "type": "object"
+      },
+      "DomainOperationPermission": {
+        "description": "Domain-only operation permission; allowed does not bypass D13 or any other\npermission. Mute adds no operation restriction. Block is not cleared by reveal.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "status": {
+                "enum": [
+                  "allowed"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "control": {
+                "$ref": "#/components/schemas/BlockingDomainControlRef"
+              },
+              "status": {
+                "enum": [
+                  "blocked"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "control",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "EmbeddedNotePresentation": {
+        "description": "One embedded target only. Revealing an outer quote never reveals\nthis target. No decision about attribution through nested quotes is made.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "note": {
+                "$ref": "#/components/schemas/NoteContent"
+              },
+              "state": {
+                "enum": [
+                  "visible"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "note",
+              "state"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "domain": {
+                "$ref": "#/components/schemas/ControlDomain"
+              },
+              "mode": {
+                "$ref": "#/components/schemas/DomainControlMode"
+              },
+              "revision": {
+                "description": "E8 revision, starts at 1, monotonically increases, never reused.",
+                "format": "int64",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "state": {
+                "enum": [
+                  "hidden"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode",
+              "domain",
+              "revision",
+              "state"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "reason": {
+                "$ref": "#/components/schemas/ContentRestriction"
+              },
+              "state": {
+                "enum": [
+                  "restricted"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "reason",
+              "state"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "EmojiAvailability": {
         "description": "Whether an emoji can currently be used.",
         "enum": [
           "available",
           "unavailable"
+        ],
+        "type": "string"
+      },
+      "EmojiReactionCount": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "emoji": {
+            "$ref": "#/components/schemas/EmojiRef"
+          }
+        },
+        "required": [
+          "emoji",
+          "count"
+        ],
+        "type": "object"
+      },
+      "EmojiReactionDomainBlock": {
+        "additionalProperties": false,
+        "description": "Per-operation emoji_reaction block refusal details. Explicit unblock in Emumet is\nrequired first; mute never produces this result. D13 cannot override block.",
+        "properties": {
+          "control": {
+            "$ref": "#/components/schemas/BlockingDomainControlRef"
+          },
+          "emoji": {
+            "$ref": "#/components/schemas/EmojiRef"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/EmojiReactionOperation"
+          }
+        },
+        "required": [
+          "operation",
+          "control",
+          "emoji"
+        ],
+        "type": "object"
+      },
+      "EmojiReactionOperation": {
+        "description": "Operation identity, distinct on the wire from every other post action.",
+        "enum": [
+          "emoji_reaction"
         ],
         "type": "string"
       },
@@ -142,6 +533,17 @@
             },
             "type": "array"
           },
+          "domain_block": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OutboundDomainBlock",
+                "description": "Optional S8 outbound block refusal. code remains forbidden (403); absent\nfor all existing S0/S3 errors. No mutation, implicit unblock or Undo."
+              }
+            ]
+          },
           "message": {
             "description": "Human readable description intended for developers, not end users.",
             "type": "string"
@@ -168,6 +570,96 @@
         ],
         "type": "string"
       },
+      "FeedItem": {
+        "description": "A feed contains only visible items. For mute AND block, omit an entire\nthird-party quote (including the quoter's comment) or pure repost when its\nimmediate target is suppressed. Do not mute/block that third party or their\nunrelated posts. No hidden variant, placeholder, suppressed count or note.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "post"
+                ],
+                "type": "string"
+              },
+              "note": {
+                "$ref": "#/components/schemas/NoteContent"
+              }
+            },
+            "required": [
+              "note",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "reply"
+                ],
+                "type": "string"
+              },
+              "note": {
+                "$ref": "#/components/schemas/NoteContent"
+              }
+            },
+            "required": [
+              "note",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "quote"
+                ],
+                "type": "string"
+              },
+              "note": {
+                "$ref": "#/components/schemas/NoteContent"
+              },
+              "quoted_note": {
+                "$ref": "#/components/schemas/NoteContent"
+              }
+            },
+            "required": [
+              "note",
+              "quoted_note",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "repost"
+                ],
+                "type": "string"
+              },
+              "note_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "reposted_note": {
+                "$ref": "#/components/schemas/NoteContent"
+              }
+            },
+            "required": [
+              "note_id",
+              "reposted_note",
+              "kind"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "FieldViolation": {
         "description": "A single field level validation problem.",
         "properties": {
@@ -185,6 +677,262 @@
           "message"
         ],
         "type": "object"
+      },
+      "InboundEmojiReactionRejection": {
+        "additionalProperties": false,
+        "description": "ShuttlePub INTERNAL inbound emoji_reaction acceptance result contract, NOT a wire\ninbox/API or an ActivityPub HTTP status. Refuse NEW actions from this domain\nto this Profile, even if D13 permits the action. No rejection on mute alone.",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/RejectedOutcome"
+          },
+          "rejected": {
+            "$ref": "#/components/schemas/EmojiReactionDomainBlock"
+          }
+        },
+        "required": [
+          "outcome",
+          "rejected"
+        ],
+        "type": "object"
+      },
+      "InboundLikeRejection": {
+        "additionalProperties": false,
+        "description": "ShuttlePub INTERNAL inbound like acceptance result contract, NOT a wire\ninbox/API or an ActivityPub HTTP status. Refuse NEW actions from this domain\nto this Profile, even if D13 permits the action. No rejection on mute alone.",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/RejectedOutcome"
+          },
+          "rejected": {
+            "$ref": "#/components/schemas/LikeDomainBlock"
+          }
+        },
+        "required": [
+          "outcome",
+          "rejected"
+        ],
+        "type": "object"
+      },
+      "InboundQuoteRejection": {
+        "additionalProperties": false,
+        "description": "ShuttlePub INTERNAL inbound quote acceptance result contract, NOT a wire\ninbox/API or an ActivityPub HTTP status. Refuse NEW actions from this domain\nto this Profile, even if D13 permits the action. No rejection on mute alone.",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/RejectedOutcome"
+          },
+          "rejected": {
+            "$ref": "#/components/schemas/QuoteDomainBlock"
+          }
+        },
+        "required": [
+          "outcome",
+          "rejected"
+        ],
+        "type": "object"
+      },
+      "InboundReplyRejection": {
+        "additionalProperties": false,
+        "description": "ShuttlePub INTERNAL inbound reply acceptance result contract, NOT a wire\ninbox/API or an ActivityPub HTTP status. Refuse NEW actions from this domain\nto this Profile, even if D13 permits the action. No rejection on mute alone.",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/RejectedOutcome"
+          },
+          "rejected": {
+            "$ref": "#/components/schemas/ReplyDomainBlock"
+          }
+        },
+        "required": [
+          "outcome",
+          "rejected"
+        ],
+        "type": "object"
+      },
+      "InboundRepostRejection": {
+        "additionalProperties": false,
+        "description": "ShuttlePub INTERNAL inbound repost acceptance result contract, NOT a wire\ninbox/API or an ActivityPub HTTP status. Refuse NEW actions from this domain\nto this Profile, even if D13 permits the action. No rejection on mute alone.",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/RejectedOutcome"
+          },
+          "rejected": {
+            "$ref": "#/components/schemas/RepostDomainBlock"
+          }
+        },
+        "required": [
+          "outcome",
+          "rejected"
+        ],
+        "type": "object"
+      },
+      "LikeDomainBlock": {
+        "additionalProperties": false,
+        "description": "Per-operation like block refusal details. Explicit unblock in Emumet is\nrequired first; mute never produces this result. D13 cannot override block.",
+        "properties": {
+          "control": {
+            "$ref": "#/components/schemas/BlockingDomainControlRef"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/LikeOperation"
+          }
+        },
+        "required": [
+          "operation",
+          "control"
+        ],
+        "type": "object"
+      },
+      "LikeOperation": {
+        "description": "Operation identity, distinct on the wire from every other post action.",
+        "enum": [
+          "like"
+        ],
+        "type": "string"
+      },
+      "NoteContent": {
+        "additionalProperties": false,
+        "description": "Minimal content projection for this contract, not a full author/media DTO.",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "note_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note_id",
+          "content"
+        ],
+        "type": "object"
+      },
+      "NotePresentation": {
+        "description": "Direct URL presentation. Hidden contains ONLY state, E8 mode, domain and\nrevision: no body, author details, media, CW text, mention or embedded data.\nRestricted remains content-free even after an explicit single-note reveal.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "domain": {
+                "$ref": "#/components/schemas/ControlDomain"
+              },
+              "mode": {
+                "$ref": "#/components/schemas/DomainControlMode"
+              },
+              "revision": {
+                "description": "E8 revision, not a session/reveal token.",
+                "format": "int64",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "state": {
+                "enum": [
+                  "hidden"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode",
+              "domain",
+              "revision",
+              "state"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "item": {
+                "$ref": "#/components/schemas/DirectItem"
+              },
+              "operations": {
+                "$ref": "#/components/schemas/PostOperationAvailability"
+              },
+              "reaction_counts": {
+                "$ref": "#/components/schemas/ReactionCounts"
+              },
+              "state": {
+                "enum": [
+                  "visible"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "item",
+              "operations",
+              "reaction_counts",
+              "state"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "operations": {
+                "$ref": "#/components/schemas/PostOperationAvailability"
+              },
+              "reason": {
+                "$ref": "#/components/schemas/ContentRestriction"
+              },
+              "state": {
+                "enum": [
+                  "restricted"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "reason",
+              "operations",
+              "state"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "NoteSearchResponse": {
+        "additionalProperties": false,
+        "description": "Post search only (not Account search). No suppression annotation or count.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeedItem"
+            },
+            "type": "array"
+          },
+          "page": {
+            "$ref": "#/components/schemas/ContentPageInfo"
+          },
+          "profile_id": {
+            "$ref": "#/components/schemas/ProfileNanoid"
+          }
+        },
+        "required": [
+          "profile_id",
+          "items",
+          "page"
+        ],
+        "type": "object"
+      },
+      "OutboundDomainBlock": {
+        "description": "Optional typed extension on common 403 forbidden ErrorBody. Each variant is\na separate operation contract. Like and emoji have distinct wire values;\nonly emoji carries EmojiRef, exactly the S3 PUT request's identity.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ReplyDomainBlock"
+          },
+          {
+            "$ref": "#/components/schemas/QuoteDomainBlock"
+          },
+          {
+            "$ref": "#/components/schemas/RepostDomainBlock"
+          },
+          {
+            "$ref": "#/components/schemas/LikeDomainBlock"
+          },
+          {
+            "$ref": "#/components/schemas/EmojiReactionDomainBlock"
+          }
+        ]
       },
       "PageInfo": {
         "description": "Pagination metadata embedded in collection responses.",
@@ -219,6 +967,48 @@
             ]
           }
         },
+        "type": "object"
+      },
+      "PostComment": {
+        "additionalProperties": false,
+        "description": "Reply/quote input only; success-creation semantics are outside S8.",
+        "properties": {
+          "content": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
+      "PostOperationAvailability": {
+        "additionalProperties": false,
+        "properties": {
+          "emoji_reaction": {
+            "$ref": "#/components/schemas/DomainOperationPermission"
+          },
+          "like": {
+            "$ref": "#/components/schemas/DomainOperationPermission"
+          },
+          "quote": {
+            "$ref": "#/components/schemas/DomainOperationPermission"
+          },
+          "reply": {
+            "$ref": "#/components/schemas/DomainOperationPermission"
+          },
+          "repost": {
+            "$ref": "#/components/schemas/DomainOperationPermission"
+          }
+        },
+        "required": [
+          "reply",
+          "quote",
+          "repost",
+          "like",
+          "emoji_reaction"
+        ],
         "type": "object"
       },
       "ProfileNanoid": {
@@ -265,6 +1055,52 @@
         ],
         "type": "object"
       },
+      "QuoteDomainBlock": {
+        "additionalProperties": false,
+        "description": "Per-operation quote block refusal details. Explicit unblock in Emumet is\nrequired first; mute never produces this result. D13 cannot override block.",
+        "properties": {
+          "control": {
+            "$ref": "#/components/schemas/BlockingDomainControlRef"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/QuoteOperation"
+          }
+        },
+        "required": [
+          "operation",
+          "control"
+        ],
+        "type": "object"
+      },
+      "QuoteOperation": {
+        "description": "Operation identity, distinct on the wire from every other post action.",
+        "enum": [
+          "quote"
+        ],
+        "type": "string"
+      },
+      "ReactionCounts": {
+        "additionalProperties": false,
+        "description": "Accepted historical likes/emoji remain counted after block; rejected new\noperations add nothing. No automatic deletion or Undo, no block annotation.\nIndependent legitimate removal can still change counts.",
+        "properties": {
+          "emoji": {
+            "items": {
+              "$ref": "#/components/schemas/EmojiReactionCount"
+            },
+            "type": "array"
+          },
+          "likes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "likes",
+          "emoji"
+        ],
+        "type": "object"
+      },
       "ReactionState": {
         "description": "The reaction a Profile has on a Note.",
         "properties": {
@@ -290,6 +1126,61 @@
           "emoji"
         ],
         "type": "object"
+      },
+      "RejectedOutcome": {
+        "description": "Internal acceptance decision, not an ActivityPub inbox wire response.",
+        "enum": [
+          "rejected"
+        ],
+        "type": "string"
+      },
+      "ReplyDomainBlock": {
+        "additionalProperties": false,
+        "description": "Per-operation reply block refusal details. Explicit unblock in Emumet is\nrequired first; mute never produces this result. D13 cannot override block.",
+        "properties": {
+          "control": {
+            "$ref": "#/components/schemas/BlockingDomainControlRef"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/ReplyOperation"
+          }
+        },
+        "required": [
+          "operation",
+          "control"
+        ],
+        "type": "object"
+      },
+      "ReplyOperation": {
+        "description": "Operation identity, distinct on the wire from every other post action.",
+        "enum": [
+          "reply"
+        ],
+        "type": "string"
+      },
+      "RepostDomainBlock": {
+        "additionalProperties": false,
+        "description": "Per-operation repost block refusal details. Explicit unblock in Emumet is\nrequired first; mute never produces this result. D13 cannot override block.",
+        "properties": {
+          "control": {
+            "$ref": "#/components/schemas/BlockingDomainControlRef"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/RepostOperation"
+          }
+        },
+        "required": [
+          "operation",
+          "control"
+        ],
+        "type": "object"
+      },
+      "RepostOperation": {
+        "description": "Operation identity, distinct on the wire from every other post action.",
+        "enum": [
+          "repost"
+        ],
+        "type": "string"
       },
       "RevisionConflictBody": {
         "description": "`409` body for a stale `expected_revision`: the common `ErrorBody` fields\nwith `code` fixed to `revision_conflict`, plus the stored revision.",
@@ -323,6 +1214,30 @@
           "code",
           "message",
           "current_revision"
+        ],
+        "type": "object"
+      },
+      "TimelineResponse": {
+        "additionalProperties": false,
+        "description": "Profile-scoped timeline: suppressed items leave no trace, including counts.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeedItem"
+            },
+            "type": "array"
+          },
+          "page": {
+            "$ref": "#/components/schemas/ContentPageInfo"
+          },
+          "profile_id": {
+            "$ref": "#/components/schemas/ProfileNanoid"
+          }
+        },
+        "required": [
+          "profile_id",
+          "items",
+          "page"
         ],
         "type": "object"
       },
@@ -372,6 +1287,366 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/profiles/{profile_nanoid}/notes/search": {
+      "get": {
+        "description": "Contract only: no real filtering, enforcement or posting. Always 501.",
+        "operationId": "searchPersonalNotes",
+        "parameters": [
+          {
+            "description": "Maximum number of items to return; the server picks a default when omitted.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor taken from a previous `next_cursor`.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          },
+          {
+            "description": "Post search text",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteSearchResponse"
+                }
+              }
+            },
+            "description": "Future contract response, never returned by the stub"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Caller cannot act as this Profile; domain controls suppress items rather than deny the collection."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Contract only; always returned until implemented"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Post search only; mute/block suppression leaves no trace.",
+        "tags": [
+          "personal-domain-content"
+        ]
+      }
+    },
+    "/api/v1/profiles/{profile_nanoid}/notes/{note_id}": {
+      "get": {
+        "description": "Contract only: no real filtering, enforcement or posting. Always 501.",
+        "operationId": "getPersonalNote",
+        "parameters": [
+          {
+            "description": "Emumet Profile nanoid",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          },
+          {
+            "description": "ShuttlePub NoteId",
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectNoteResponse"
+                }
+              }
+            },
+            "description": "Future contract response, never returned by the stub"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Caller cannot act as Profile or lacks viewing rights. Domain mute/block alone does not forbid single-note reveal."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Contract only; always returned until implemented"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Direct URL: initially hidden, including entire third-party quotes.",
+        "tags": [
+          "personal-domain-content"
+        ]
+      }
+    },
+    "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/like": {
+      "put": {
+        "description": "Contract only: no real filtering, enforcement or posting. Always 501.",
+        "operationId": "putPersonalLike",
+        "parameters": [
+          {
+            "description": "Emumet Profile nanoid",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          },
+          {
+            "description": "ShuttlePub NoteId",
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Forbidden; outbound block uses operation-specific domain_block details in ErrorBody, never auto-unblocks"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Contract only; always returned until implemented"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "New outbound like (not emoji): block refusal contract only; success semantics are outside S8.",
+        "tags": [
+          "personal-domain-content"
+        ]
+      }
+    },
+    "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/quotes": {
+      "post": {
+        "description": "Contract only: no real filtering, enforcement or posting. Always 501.",
+        "operationId": "createPersonalQuote",
+        "parameters": [
+          {
+            "description": "Emumet Profile nanoid",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          },
+          {
+            "description": "ShuttlePub NoteId",
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostComment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Forbidden; outbound block uses operation-specific domain_block details in ErrorBody, never auto-unblocks"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Contract only; always returned until implemented"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "New outbound quote: block refusal contract only; successful creation is outside S8.",
+        "tags": [
+          "personal-domain-content"
+        ]
+      }
+    },
     "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction": {
       "delete": {
         "description": "Idempotent and independent of emoji availability: answers `200` with\n`emoji: null` also when nothing was selected, and also when the selected\nemoji has become unavailable.",
@@ -637,7 +1912,7 @@
                 }
               }
             },
-            "description": "The caller may not act as this Profile (forbidden)"
+            "description": "Forbidden: caller may not act as Profile, or E8 domain block refuses the new emoji operation. Block uses optional ErrorBody.domain_block (EmojiReactionDomainBlock); explicit unblock required first. Mute adds no restriction. Existing S3 error shape remains valid."
           },
           "404": {
             "content": {
@@ -678,6 +1953,357 @@
         "summary": "Select the reaction of a Profile on a Note (stub: always answers 501)",
         "tags": [
           "quick-reaction"
+        ]
+      }
+    },
+    "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/replies": {
+      "post": {
+        "description": "Contract only: no real filtering, enforcement or posting. Always 501.",
+        "operationId": "createPersonalReply",
+        "parameters": [
+          {
+            "description": "Emumet Profile nanoid",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          },
+          {
+            "description": "ShuttlePub NoteId",
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostComment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Forbidden; outbound block uses operation-specific domain_block details in ErrorBody, never auto-unblocks"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Contract only; always returned until implemented"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "New outbound reply: block refusal contract only; successful creation is outside S8.",
+        "tags": [
+          "personal-domain-content"
+        ]
+      }
+    },
+    "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reposts": {
+      "post": {
+        "description": "Contract only: no real filtering, enforcement or posting. Always 501.",
+        "operationId": "createPersonalRepost",
+        "parameters": [
+          {
+            "description": "Emumet Profile nanoid",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          },
+          {
+            "description": "ShuttlePub NoteId",
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Forbidden; outbound block uses operation-specific domain_block details in ErrorBody, never auto-unblocks"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Contract only; always returned until implemented"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "New outbound pure repost: block refusal contract only; successful creation is outside S8.",
+        "tags": [
+          "personal-domain-content"
+        ]
+      }
+    },
+    "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reveal": {
+      "post": {
+        "description": "Contract only: no real filtering, enforcement or posting. Always 501.",
+        "operationId": "revealPersonalNote",
+        "parameters": [
+          {
+            "description": "Emumet Profile nanoid",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          },
+          {
+            "description": "ShuttlePub NoteId",
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectNoteResponse"
+                }
+              }
+            },
+            "description": "Future contract response, never returned by the stub"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Caller cannot act as Profile or lacks viewing rights. Domain mute/block alone does not forbid single-note reveal."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Contract only; always returned until implemented"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Explicit one-note, current-page-only reveal. Never persist, unblock or bypass independent gates.",
+        "tags": [
+          "personal-domain-content"
+        ]
+      }
+    },
+    "/api/v1/profiles/{profile_nanoid}/notifications": {
+      "get": {
+        "description": "Contract only: no real filtering, enforcement or posting. Always 501.",
+        "operationId": "getPersonalContentNotifications",
+        "parameters": [
+          {
+            "description": "Maximum number of items to return; the server picks a default when omitted.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor taken from a previous `next_cursor`.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentNotificationsResponse"
+                }
+              }
+            },
+            "description": "Future contract response, never returned by the stub"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Caller cannot act as this Profile; domain controls suppress items rather than deny the collection."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Contract only; always returned until implemented"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Suppressed notifications do not contribute to unread count.",
+        "tags": [
+          "personal-domain-content"
         ]
       }
     },
@@ -884,6 +2510,103 @@
         ]
       }
     },
+    "/api/v1/profiles/{profile_nanoid}/timeline": {
+      "get": {
+        "description": "Contract only: no real filtering, enforcement or posting. Always 501.",
+        "operationId": "getPersonalTimeline",
+        "parameters": [
+          {
+            "description": "Maximum number of items to return; the server picks a default when omitted.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor taken from a previous `next_cursor`.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineResponse"
+                }
+              }
+            },
+            "description": "Future contract response, never returned by the stub"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Caller cannot act as this Profile; domain controls suppress items rather than deny the collection."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Contract only; always returned until implemented"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Omit controlled items for this Profile only, without trace.",
+        "tags": [
+          "personal-domain-content"
+        ]
+      }
+    },
     "/api/v1/status": {
       "get": {
         "operationId": "getApiStatus",
@@ -924,6 +2647,10 @@
     {
       "description": "Quick reaction favourites per Profile and the reaction of a Profile on a Note. Contract only: stored nowhere, every route answers 501.",
       "name": "quick-reaction"
+    },
+    {
+      "description": "S8 personal domain display and post refusal contracts. E8 owns policy; no filtering or enforcement is implemented. All routes answer 501. Inbound DTOs are internal decision contracts, not an inbox.",
+      "name": "personal-domain-content"
     }
   ]
 }

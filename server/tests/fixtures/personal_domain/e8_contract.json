@@ -1,0 +1,177 @@
+{
+  "source_repository": "ShuttlePub/Emumet",
+  "source_commit": "11414a68ec1bb6872d8af6c09f7e1a312c19922e",
+  "source_path": "openapi.json",
+  "source_components": {
+    "DomainControlResponse": {
+      "type": "object",
+      "description": "CONTRACT ONLY: not mounted on the production router (mounted in P4 at the earliest); implemented by D8P (handlers are real but only mounted in tests).\n\nA Profile x exact-match domain control.\n\nMatching is exact: `example.com` does not cover `sub.example.com`.\nSettings are per Profile and never propagate to other Profiles or Accounts.",
+      "required": [
+        "profile_id",
+        "domain",
+        "mode",
+        "revision",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Normalized domain (lowercase ASCII / IDNA A-label host, no scheme, port or wildcard)."
+        },
+        "mode": {
+          "$ref": "#/components/schemas/DomainControlMode"
+        },
+        "profile_id": {
+          "type": "string",
+          "description": "Owning Profile nanoid."
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Monotonic revision starting at 1, incremented on every change.\nSend it back as `expected_revision` to update or delete safely.",
+          "minimum": 0
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "DomainControlMode": {
+      "type": "string",
+      "description": "CONTRACT ONLY: not mounted on the production router (mounted in P4 at the earliest); implemented by D8P (handlers are real but only mounted in tests).\n\nTreatment applied to every actor whose canonical actor-ID host equals the domain.",
+      "enum": [
+        "mute",
+        "block"
+      ]
+    },
+    "ProfileActorRef": {
+      "type": "object",
+      "description": "CONTRACT ONLY: not mounted on the production router (mounted in P4 at the earliest); handlers answer 501.\n\nReference to a follower or target actor, local or remote.",
+      "required": [
+        "kind",
+        "actor_url"
+      ],
+      "properties": {
+        "actor_url": {
+          "type": "string",
+          "description": "Canonical ActivityPub actor ID (URL). Always present, for local and remote actors alike."
+        },
+        "kind": {
+          "$ref": "#/components/schemas/ProfileActorKind"
+        },
+        "profile_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Profile nanoid; present only when kind is `local`, absent for remote actors."
+        }
+      }
+    },
+    "ProfileResponse": {
+      "type": "object",
+      "required": [
+        "account_id",
+        "id"
+      ],
+      "properties": {
+        "account_id": {
+          "type": "string"
+        },
+        "banner_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "display_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "icon_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "summary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "username": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Profile username; null while the Profile has none (legacy Profiles). Set once, immutable."
+        }
+      }
+    }
+  },
+  "source_paths": [
+    "/api/v1/profiles/{profile_nanoid}/domain-controls",
+    "/api/v1/profiles/{profile_nanoid}/domain-controls/{domain}"
+  ],
+  "semantics_source": "host intents/emumet/features/personal-domain-controls/acceptance.md: E8 確定契約 / D8P 確定契約",
+  "response": {
+    "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "domain": "blocked.example",
+    "mode": "block",
+    "revision": 4,
+    "created_at": "2026-11-01T00:00:00Z",
+    "updated_at": "2026-11-02T00:00:00Z"
+  },
+  "projection": {
+    "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "domain": "blocked.example",
+    "mode": "block",
+    "revision": 4
+  },
+  "revision_lifecycle": [
+    {
+      "change": "create",
+      "revision": 1
+    },
+    {
+      "change": "replace",
+      "revision": 2
+    },
+    {
+      "change": "delete_tombstone",
+      "revision": 3
+    },
+    {
+      "change": "recreate",
+      "revision": 4
+    }
+  ],
+  "normalization_observations": [
+    {
+      "input": "EXAMPLE.COM.",
+      "e8_domain": "example.com"
+    },
+    {
+      "input": "faß.de.",
+      "e8_domain": "xn--fa-hia.de"
+    }
+  ],
+  "matching": {
+    "canonical_actor_url": "https://blocked.example/users/one",
+    "domain": "blocked.example",
+    "subdomain_actor_url": "https://sub.blocked.example/users/one",
+    "subdomain_matches": false
+  }
+}

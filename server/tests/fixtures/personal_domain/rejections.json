@@ -1,0 +1,170 @@
+[
+  {
+    "operation": "reply",
+    "inbound_schema": "InboundReplyRejection",
+    "details_schema": "ReplyDomainBlock",
+    "d13_permission": "allow",
+    "inbound": {
+      "outcome": "rejected",
+      "rejected": {
+        "operation": "reply",
+        "control": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "domain": "blocked.example",
+          "mode": "block",
+          "revision": 4
+        }
+      }
+    },
+    "outbound_status": 403,
+    "outbound": {
+      "code": "forbidden",
+      "message": "explicit domain unblock required before a new reply",
+      "domain_block": {
+        "operation": "reply",
+        "control": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "domain": "blocked.example",
+          "mode": "block",
+          "revision": 4
+        }
+      }
+    }
+  },
+  {
+    "operation": "quote",
+    "inbound_schema": "InboundQuoteRejection",
+    "details_schema": "QuoteDomainBlock",
+    "d13_permission": "allow",
+    "inbound": {
+      "outcome": "rejected",
+      "rejected": {
+        "operation": "quote",
+        "control": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "domain": "blocked.example",
+          "mode": "block",
+          "revision": 4
+        }
+      }
+    },
+    "outbound_status": 403,
+    "outbound": {
+      "code": "forbidden",
+      "message": "explicit domain unblock required before a new quote",
+      "domain_block": {
+        "operation": "quote",
+        "control": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "domain": "blocked.example",
+          "mode": "block",
+          "revision": 4
+        }
+      }
+    }
+  },
+  {
+    "operation": "repost",
+    "inbound_schema": "InboundRepostRejection",
+    "details_schema": "RepostDomainBlock",
+    "d13_permission": "allow",
+    "inbound": {
+      "outcome": "rejected",
+      "rejected": {
+        "operation": "repost",
+        "control": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "domain": "blocked.example",
+          "mode": "block",
+          "revision": 4
+        }
+      }
+    },
+    "outbound_status": 403,
+    "outbound": {
+      "code": "forbidden",
+      "message": "explicit domain unblock required before a new repost",
+      "domain_block": {
+        "operation": "repost",
+        "control": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "domain": "blocked.example",
+          "mode": "block",
+          "revision": 4
+        }
+      }
+    }
+  },
+  {
+    "operation": "like",
+    "inbound_schema": "InboundLikeRejection",
+    "details_schema": "LikeDomainBlock",
+    "d13_permission": "allow",
+    "inbound": {
+      "outcome": "rejected",
+      "rejected": {
+        "operation": "like",
+        "control": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "domain": "blocked.example",
+          "mode": "block",
+          "revision": 4
+        }
+      }
+    },
+    "outbound_status": 403,
+    "outbound": {
+      "code": "forbidden",
+      "message": "explicit domain unblock required before a new like",
+      "domain_block": {
+        "operation": "like",
+        "control": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "domain": "blocked.example",
+          "mode": "block",
+          "revision": 4
+        }
+      }
+    }
+  },
+  {
+    "operation": "emoji_reaction",
+    "inbound_schema": "InboundEmojiReactionRejection",
+    "details_schema": "EmojiReactionDomainBlock",
+    "d13_permission": "allow",
+    "inbound": {
+      "outcome": "rejected",
+      "rejected": {
+        "operation": "emoji_reaction",
+        "control": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "domain": "blocked.example",
+          "mode": "block",
+          "revision": 4
+        },
+        "emoji": {
+          "type": "unicode",
+          "value": "👍"
+        }
+      }
+    },
+    "outbound_status": 403,
+    "outbound": {
+      "code": "forbidden",
+      "message": "explicit domain unblock required before a new emoji_reaction",
+      "domain_block": {
+        "operation": "emoji_reaction",
+        "control": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "domain": "blocked.example",
+          "mode": "block",
+          "revision": 4
+        },
+        "emoji": {
+          "type": "unicode",
+          "value": "👍"
+        }
+      }
+    }
+  }
+]

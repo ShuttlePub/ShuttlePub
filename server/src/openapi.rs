@@ -16,7 +16,7 @@ use utoipa::{
 };
 use utoipa_axum::router::OpenApiRouter;
 
-use crate::api_v1::{self, quick_reaction};
+use crate::api_v1::{self, personal_domain, quick_reaction};
 
 /// Checked-in location of the generated document, relative to the workspace root.
 pub const GENERATED_PATH: &str = "openapi/shuttlepub.json";
@@ -44,11 +44,17 @@ pub const GENERATED_PATH: &str = "openapi/shuttlepub.json";
         quick_reaction::ReactionState,
         quick_reaction::RevisionConflictBody,
         quick_reaction::UpdateQuickReactionSettings,
+        personal_domain::DomainControlRef,
+        personal_domain::InboundReplyRejection,
+        personal_domain::InboundQuoteRejection,
+        personal_domain::InboundRepostRejection,
+        personal_domain::InboundLikeRejection,
+        personal_domain::InboundEmojiReactionRejection,
     )),
-    modifiers(&ContractFixups),
     tags(
         (name = "meta", description = "Service level information"),
-        (name = "quick-reaction", description = "Quick reaction favourites per Profile and the reaction of a Profile on a Note. Contract only: stored nowhere, every route answers 501.")
+        (name = "quick-reaction", description = "Quick reaction favourites per Profile and the reaction of a Profile on a Note. Contract only: stored nowhere, every route answers 501."),
+        (name = "personal-domain-content", description = "S8 personal domain display and post refusal contracts. E8 owns policy; no filtering or enforcement is implemented. All routes answer 501. Inbound DTOs are internal decision contracts, not an inbox.")
     )
 )]
 pub struct ApiDoc;
@@ -62,11 +68,23 @@ struct ContractFixups;
 impl Modify for ContractFixups {
     fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
         if let Some(components) = openapi.components.as_mut() {
-            if let Some(RefOr::T(Schema::OneOf(one_of))) = components.schemas.get_mut("EmojiRef") {
-                for variant in &mut one_of.items {
-                    if let RefOr::T(Schema::Object(object)) = variant {
-                        object.additional_properties =
-                            Some(Box::new(AdditionalProperties::FreeForm(false)));
+            // utoipa does not close tagged enum variants from deny_unknown_fields.
+            // Close every S8 sum type too: hidden payloads and feed items must
+            // reject arbitrary body/author/media/placeholder extensions.
+            for name in [
+                "EmojiRef",
+                "FeedItem",
+                "EmbeddedNotePresentation",
+                "DirectItem",
+                "DomainOperationPermission",
+                "NotePresentation",
+            ] {
+                if let Some(RefOr::T(Schema::OneOf(one_of))) = components.schemas.get_mut(name) {
+                    for variant in &mut one_of.items {
+                        if let RefOr::T(Schema::Object(object)) = variant {
+                            object.additional_properties =
+                                Some(Box::new(AdditionalProperties::FreeForm(false)));
+                        }
                     }
                 }
             }
@@ -88,9 +106,13 @@ impl Modify for ContractFixups {
 /// Axum router and OpenAPI document built from the single route registration in
 /// [`api_v1::router`].
 pub fn contract() -> (Router, utoipa::openapi::OpenApi) {
-    OpenApiRouter::with_openapi(ApiDoc::openapi())
+    let (router, mut doc) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .merge(api_v1::router())
-        .split_for_parts()
+        .split_for_parts();
+    // routes! contributes referenced schemas during the merge. Apply fixups
+    // afterwards so newly route-discovered enum variants are closed as well.
+    ContractFixups.modify(&mut doc);
+    (router, doc)
 }
 
 /// Recursively sort object keys so the output never depends on map ordering.
