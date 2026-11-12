@@ -360,6 +360,7 @@ impl ApiV1Error {
             code: ErrorCode::InvalidRequest,
             message: "the request failed validation".into(),
             details,
+            domain_block: None,
         })
     }
 }
@@ -460,7 +461,7 @@ pub async fn get_note_reaction() -> ApiV1Error {
         (status = 200, description = "State after selecting (also for a repeated or replacing request). Contract only: never returned while the endpoint is a stub", body = ReactionState),
         (status = 400, description = "Malformed emoji identifier or profile_nanoid (invalid_request with details)", body = ErrorBody),
         (status = 401, description = "Not authenticated (unauthorized)", body = ErrorBody),
-        (status = 403, description = "The caller may not act as this Profile (forbidden)", body = ErrorBody),
+        (status = 403, description = "Forbidden: caller may not act as Profile, or E8 domain block refuses the new emoji operation. Block uses optional ErrorBody.domain_block (EmojiReactionDomainBlock); explicit unblock required first. Mute adds no restriction. Existing S3 error shape remains valid.", body = ErrorBody),
         (status = 404, description = "Unknown Profile or Note (not_found)", body = ErrorBody),
         (status = 422, description = "The emoji is unavailable (emoji_unavailable), checked before the repeat no-op rule; the current reaction stays", body = ErrorBody),
         (status = 501, description = "Not implemented yet (not_implemented)", body = ErrorBody),

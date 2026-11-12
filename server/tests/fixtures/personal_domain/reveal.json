@@ -1,0 +1,760 @@
+[
+  {
+    "name": "mute",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "mute",
+      "revision": 4
+    },
+    "steps": [
+      {
+        "action": "get",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "hidden",
+            "mode": "mute",
+            "domain": "blocked.example",
+            "revision": 4
+          }
+        }
+      },
+      {
+        "action": "reveal",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "visible",
+            "item": {
+              "kind": "post",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000002",
+                "content": "SECRET_BODY"
+              }
+            },
+            "operations": {
+              "reply": {
+                "status": "allowed"
+              },
+              "quote": {
+                "status": "allowed"
+              },
+              "repost": {
+                "status": "allowed"
+              },
+              "like": {
+                "status": "allowed"
+              },
+              "emoji_reaction": {
+                "status": "allowed"
+              }
+            },
+            "reaction_counts": {
+              "likes": 7,
+              "emoji": [
+                {
+                  "emoji": {
+                    "type": "unicode",
+                    "value": "👍"
+                  },
+                  "count": 3
+                },
+                {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "count": 2
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "action": "get_other",
+        "note_id": "00000000-0000-4000-8000-000000000007",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "hidden",
+            "mode": "mute",
+            "domain": "blocked.example",
+            "revision": 4
+          }
+        }
+      },
+      {
+        "action": "hide",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "hidden",
+            "mode": "mute",
+            "domain": "blocked.example",
+            "revision": 4
+          }
+        }
+      },
+      {
+        "action": "reload",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "hidden",
+            "mode": "mute",
+            "domain": "blocked.example",
+            "revision": 4
+          }
+        }
+      },
+      {
+        "action": "revisit",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "hidden",
+            "mode": "mute",
+            "domain": "blocked.example",
+            "revision": 4
+          }
+        }
+      },
+      {
+        "action": "reveal_quote",
+        "note_id": "00000000-0000-4000-8000-000000000003",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "visible",
+            "item": {
+              "kind": "quote",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000003",
+                "content": "SECRET_QUOTER_COMMENT"
+              },
+              "quoted_note": {
+                "state": "hidden",
+                "mode": "mute",
+                "domain": "blocked.example",
+                "revision": 4
+              }
+            },
+            "operations": {
+              "reply": {
+                "status": "allowed"
+              },
+              "quote": {
+                "status": "allowed"
+              },
+              "repost": {
+                "status": "allowed"
+              },
+              "like": {
+                "status": "allowed"
+              },
+              "emoji_reaction": {
+                "status": "allowed"
+              }
+            },
+            "reaction_counts": {
+              "likes": 7,
+              "emoji": [
+                {
+                  "emoji": {
+                    "type": "unicode",
+                    "value": "👍"
+                  },
+                  "count": 3
+                },
+                {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "count": 2
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "action": "reveal_restricted",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "restriction": "cw",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "restricted",
+            "reason": "cw",
+            "operations": {
+              "reply": {
+                "status": "allowed"
+              },
+              "quote": {
+                "status": "allowed"
+              },
+              "repost": {
+                "status": "allowed"
+              },
+              "like": {
+                "status": "allowed"
+              },
+              "emoji_reaction": {
+                "status": "allowed"
+              }
+            }
+          }
+        }
+      },
+      {
+        "action": "reveal_restricted",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "restriction": "sensitive",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "restricted",
+            "reason": "sensitive",
+            "operations": {
+              "reply": {
+                "status": "allowed"
+              },
+              "quote": {
+                "status": "allowed"
+              },
+              "repost": {
+                "status": "allowed"
+              },
+              "like": {
+                "status": "allowed"
+              },
+              "emoji_reaction": {
+                "status": "allowed"
+              }
+            }
+          }
+        }
+      },
+      {
+        "action": "reveal_restricted",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "restriction": "deleted",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "restricted",
+            "reason": "deleted",
+            "operations": {
+              "reply": {
+                "status": "allowed"
+              },
+              "quote": {
+                "status": "allowed"
+              },
+              "repost": {
+                "status": "allowed"
+              },
+              "like": {
+                "status": "allowed"
+              },
+              "emoji_reaction": {
+                "status": "allowed"
+              }
+            }
+          }
+        }
+      },
+      {
+        "action": "reveal_restricted",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "restriction": "visibility",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "restricted",
+            "reason": "visibility",
+            "operations": {
+              "reply": {
+                "status": "allowed"
+              },
+              "quote": {
+                "status": "allowed"
+              },
+              "repost": {
+                "status": "allowed"
+              },
+              "like": {
+                "status": "allowed"
+              },
+              "emoji_reaction": {
+                "status": "allowed"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "block",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "steps": [
+      {
+        "action": "get",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "hidden",
+            "mode": "block",
+            "domain": "blocked.example",
+            "revision": 4
+          }
+        }
+      },
+      {
+        "action": "reveal",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "visible",
+            "item": {
+              "kind": "post",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000002",
+                "content": "SECRET_BODY"
+              }
+            },
+            "operations": {
+              "reply": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "quote": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "repost": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "like": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "emoji_reaction": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              }
+            },
+            "reaction_counts": {
+              "likes": 7,
+              "emoji": [
+                {
+                  "emoji": {
+                    "type": "unicode",
+                    "value": "👍"
+                  },
+                  "count": 3
+                },
+                {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "count": 2
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "action": "get_other",
+        "note_id": "00000000-0000-4000-8000-000000000007",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "hidden",
+            "mode": "block",
+            "domain": "blocked.example",
+            "revision": 4
+          }
+        }
+      },
+      {
+        "action": "hide",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "hidden",
+            "mode": "block",
+            "domain": "blocked.example",
+            "revision": 4
+          }
+        }
+      },
+      {
+        "action": "reload",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "hidden",
+            "mode": "block",
+            "domain": "blocked.example",
+            "revision": 4
+          }
+        }
+      },
+      {
+        "action": "revisit",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "hidden",
+            "mode": "block",
+            "domain": "blocked.example",
+            "revision": 4
+          }
+        }
+      },
+      {
+        "action": "reveal_quote",
+        "note_id": "00000000-0000-4000-8000-000000000003",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "visible",
+            "item": {
+              "kind": "quote",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000003",
+                "content": "SECRET_QUOTER_COMMENT"
+              },
+              "quoted_note": {
+                "state": "hidden",
+                "mode": "block",
+                "domain": "blocked.example",
+                "revision": 4
+              }
+            },
+            "operations": {
+              "reply": {
+                "status": "allowed"
+              },
+              "quote": {
+                "status": "allowed"
+              },
+              "repost": {
+                "status": "allowed"
+              },
+              "like": {
+                "status": "allowed"
+              },
+              "emoji_reaction": {
+                "status": "allowed"
+              }
+            },
+            "reaction_counts": {
+              "likes": 7,
+              "emoji": [
+                {
+                  "emoji": {
+                    "type": "unicode",
+                    "value": "👍"
+                  },
+                  "count": 3
+                },
+                {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "count": 2
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "action": "reveal_restricted",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "restriction": "cw",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "restricted",
+            "reason": "cw",
+            "operations": {
+              "reply": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "quote": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "repost": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "like": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "emoji_reaction": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "action": "reveal_restricted",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "restriction": "sensitive",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "restricted",
+            "reason": "sensitive",
+            "operations": {
+              "reply": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "quote": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "repost": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "like": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "emoji_reaction": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "action": "reveal_restricted",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "restriction": "deleted",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "restricted",
+            "reason": "deleted",
+            "operations": {
+              "reply": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "quote": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "repost": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "like": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "emoji_reaction": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "action": "reveal_restricted",
+        "note_id": "00000000-0000-4000-8000-000000000002",
+        "restriction": "visibility",
+        "expect": {
+          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+          "presentation": {
+            "state": "restricted",
+            "reason": "visibility",
+            "operations": {
+              "reply": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "quote": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "repost": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "like": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              },
+              "emoji_reaction": {
+                "status": "blocked",
+                "control": {
+                  "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                  "domain": "blocked.example",
+                  "mode": "block",
+                  "revision": 4
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

@@ -577,6 +577,7 @@ impl Model {
     fn unavailable_error(fields: Vec<String>) -> ErrorBody {
         ErrorBody {
             code: ErrorCode::EmojiUnavailable,
+            domain_block: None,
             message: "an emoji in the request is unavailable".into(),
             details: fields
                 .into_iter()
