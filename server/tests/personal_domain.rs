@@ -205,19 +205,14 @@ fn surface_reference_fixtures_omit_whole_items_without_leaking_a_trace() -> Test
         }
         let items: Vec<_> = visible.iter().map(|c| c["payload"].clone()).collect();
         let list = json!({"profile_id":profile,"items":items,"page":{}});
-        for (surface, schema) in [
-            ("timeline", "TimelineResponse"),
-            ("search", "NoteSearchResponse"),
-        ] {
-            assert_eq!(
-                list, scenario["expected"][surface],
-                "{} {surface}",
-                scenario["name"]
-            );
-            check(&spec, schema, &list)?;
-        }
+        assert_eq!(
+            list, scenario["expected"]["timeline"],
+            "{} timeline",
+            scenario["name"]
+        );
+        assert!(scenario["expected"].get("search").is_none());
+        check(&spec, "TimelineResponse", &list)?;
         roundtrip::<TimelineResponse>(&list)?;
-        roundtrip::<NoteSearchResponse>(&list)?;
         let notifications: Vec<_> = visible
             .iter()
             .map(|c| {

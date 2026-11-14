@@ -9,12 +9,12 @@
 //! delivery, Follow and existing-operation Undo are deliberately unspecified.
 
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use super::quick_reaction::{EmojiRef, ProfileNanoid};
-use super::{ApiV1Error, ErrorBody, PageParams};
+use super::{ApiV1Error, ErrorBody, FieldViolation, PageParams};
 
 /// E8 DomainControlMode, verbatim: mute suppresses display only; block also
 /// refuses new operations in both directions. Never a new ShuttlePub setting.
@@ -119,13 +119,171 @@ pub struct TimelineResponse {
     pub page: ContentPageInfo,
 }
 
-/// Post search only (not Account search). No suppression annotation or count.
+/// Default `limit` of a search page when the parameter is omitted.
+pub const NOTE_SEARCH_DEFAULT_LIMIT: u32 = 20;
+/// Maximum `limit` of a search page; larger values are `400 invalid_request`.
+pub const NOTE_SEARCH_MAX_LIMIT: u32 = 50;
+/// Maximum length of `q`, in characters (Unicode scalar values).
+pub const NOTE_SEARCH_MAX_QUERY_CHARS: usize = 256;
+/// Maximum length of an `author` actor ID URL, in characters.
+pub const NOTE_SEARCH_MAX_AUTHOR_CHARS: usize = 2048;
+
+/// Canonical actor ID URL (the ActivityPub `id` of the actor, `https`), the same
+/// identity as Emumet `ProfileActorRef.actor_url`. It is NOT an acct/handle:
+/// converting a UI `from:@user` into this URL is the BFF/UI responsibility.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(transparent)]
+#[schema(
+    pattern = r"^https://[^\s#/][^\s#]{0,2039}$",
+    example = "https://remote.example/users/alice"
+)]
+pub struct ActorUrl(pub String);
+
+/// Query of `searchPersonalNotes`. At least one of `author` and `q` is required.
+///
+/// Limits are part of the contract so an engine-less standard configuration can
+/// bound a database substring scan: page size, `q` length and the response time
+/// (partial 200 `truncated`, else `503 search_timeout`). A search engine must not
+/// change what a result means.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct NoteSearchParams {
+    /// Single author as a canonical actor ID URL (never an acct). Optional: when
+    /// omitted the search covers every note the Profile may view. An author the
+    /// server has not fetched is `404 not_found` (`details.field = author`); an
+    /// author whose domain this Profile mutes/blocks is an ordinary empty `200`.
+    pub author: Option<ActorUrl>,
+    /// Literal substring matched against a note's body AND its content warning
+    /// (never the quoted/replied-to note's text). `%`, `_` and backslash have no
+    /// special meaning. Optional (author-only search lists that author's notes).
+    /// UNDECIDED, not fixed by this contract: case-insensitive matching and
+    /// whether whitespace-separated words are ANDed; clients must not rely on either.
+    #[param(min_length = 1, max_length = 256)]
+    pub q: Option<String>,
+    /// Page size, 1..=50; the default is 20.
+    #[param(minimum = 1, maximum = 50, default = 20)]
+    pub limit: Option<u32>,
+    /// Opaque cursor from a previous `next_cursor`. It is bound to the Profile,
+    /// `author` and `q` it was issued for; another condition or a malformed value
+    /// is `400 invalid_request` (`details.field = cursor`).
+    pub cursor: Option<String>,
+}
+
+impl NoteSearchParams {
+    /// Pure input check of the contract, `Ok` when the request is well formed.
+    /// It never decides anything about actors, visibility or policy.
+    pub fn validate(&self) -> Result<(), Vec<FieldViolation>> {
+        let mut problems = Vec::new();
+        let mut add = |field: &str, message: &str| {
+            problems.push(FieldViolation {
+                field: field.to_owned(),
+                message: message.to_owned(),
+            });
+        };
+        if self.author.is_none() && self.q.is_none() {
+            add("q", "at least one of author and q is required");
+        }
+        if let Some(q) = &self.q {
+            let len = q.chars().count();
+            if len == 0 || len > NOTE_SEARCH_MAX_QUERY_CHARS {
+                add("q", "must be 1..=256 characters");
+            }
+        }
+        if let Some(limit) = self.limit
+            && !(1..=NOTE_SEARCH_MAX_LIMIT).contains(&limit)
+        {
+            add("limit", "must be 1..=50");
+        }
+        if let Some(author) = &self.author {
+            let url = &author.0;
+            let host_present = url
+                .strip_prefix("https://")
+                .is_some_and(|rest| !rest.is_empty() && !rest.starts_with('/'));
+            let clean = !url.chars().any(char::is_whitespace) && !url.contains('#');
+            if !host_present || !clean || url.chars().count() > NOTE_SEARCH_MAX_AUTHOR_CHARS {
+                add(
+                    "author",
+                    "must be a canonical https actor ID URL, not an acct",
+                );
+            }
+        }
+        if problems.is_empty() {
+            Ok(())
+        } else {
+            Err(problems)
+        }
+    }
+}
+
+/// What a search result shows of a note. A content-warned note exposes its CW
+/// only and can never carry the body, even when only the body matched the query
+/// (the UI keeps it folded). The two variants are closed and exclusive.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(tag = "display", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SearchNoteBody {
+    Text { content: String },
+    ContentWarning { content_warning: String },
+}
+
+/// One matched note of its author. No quoted/replied-to content is included.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SearchedNote {
+    pub note_id: Uuid,
+    /// Canonical actor ID URL of the note's author.
+    pub author: ActorUrl,
+    /// RFC 3339 UTC creation time. Results are ordered by it, newest first, then
+    /// by `note_id` descending (lowercase hyphenated UUID text order). An edit
+    /// never changes it.
+    #[schema(format = DateTime, example = "2026-11-14T03:00:00Z")]
+    pub created_at: String,
+    pub body: SearchNoteBody,
+}
+
+/// Search result item. Only an author's own post, reply or quote WITH a comment
+/// exist; a pure repost (no comment) is not representable at all.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum NoteSearchItem {
+    Post { note: SearchedNote },
+    Reply { note: SearchedNote },
+    Quote { note: SearchedNote },
+}
+
+/// Paging metadata of a search page. Closed: no total, hidden count or
+/// suppression note can be added. `truncated` reports only that the response
+/// time limit stopped the scan early; it says nothing about suppressed items.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NoteSearchPageInfo {
+    /// Resume point. Present when a further match is known at evaluation time
+    /// OR when `truncated` is true (then it resumes after the last scanned
+    /// position, so no match is skipped). Absent only when the scan reached the
+    /// end of the matching range. A following page may still be empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+    /// True when the response time limit stopped the scan before the page was
+    /// full or the range ended. The items are then exactly the matches before
+    /// the resume point (an exact prefix, no gaps, possibly none) and
+    /// `next_cursor` is always present. A UI may show "interrupted here" and
+    /// continue with `next_cursor`, which starts a fresh time budget.
+    pub truncated: bool,
+}
+
+/// Note search page: only notes the Profile may view, newest first. There is no
+/// total, hidden count, suppression note or placeholder. Mute/block suppression
+/// (S8) leaves no trace. Each page is evaluated against the latest state (no
+/// snapshot): an edit, deletion, lost view right or newly added mute/block takes
+/// effect on the next page, nothing already returned is retracted, and a note is
+/// never returned twice. When the time limit is reached after resumable progress
+/// the page is a partial 200 with `page.truncated = true`; `503 search_timeout`
+/// is only for a timeout without any such progress.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NoteSearchResponse {
     pub profile_id: ProfileNanoid,
-    pub items: Vec<FeedItem>,
-    pub page: ContentPageInfo,
+    pub items: Vec<NoteSearchItem>,
+    pub page: NoteSearchPageInfo,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -448,20 +606,29 @@ pub async fn get_personal_timeline() -> ApiV1Error {
     ApiV1Error::not_implemented()
 }
 
-/// Post search only; mute/block suppression leaves no trace.
+/// Post search by optional author and keyword; mute/block suppression leaves no trace.
 ///
-/// Contract only: no real filtering, enforcement or posting. Always 501.
+/// Author and keyword are both optional but not both absent; an author-less
+/// keyword search is part of the standard (engine-less) configuration, bounded
+/// by `limit`, the `q` length and a response time limit: reaching it with
+/// resumable progress yields a partial 200 (`page.truncated`), without any
+/// progress `503 search_timeout`.
+/// Notes are the author's own posts, replies and quotes with a comment; pure
+/// reposts are not searchable. Contract only: no real filtering, enforcement or
+/// posting. Always 501.
 #[utoipa::path(
     get, path = "/api/v1/profiles/{profile_nanoid}/notes/search",
     operation_id = "searchPersonalNotes", tag = "personal-domain-content",
-    params(PageParams, ("profile_nanoid" = ProfileNanoid, Path), ("q" = String, Query, description = "Post search text")),
+    params(NoteSearchParams, ("profile_nanoid" = ProfileNanoid, Path)),
     security(("bearer_auth" = [])),
     responses(
         (status = 200, description = "Future contract response, never returned by the stub", body = NoteSearchResponse),
+        (status = 400, description = "invalid_request: neither author nor q, empty or over-long q, limit out of range, author not an actor ID URL, or a cursor that is malformed or issued for another Profile/author/q (details.field names the parameter)", body = ErrorBody),
         (status = 401, description = "Unauthorized", body = ErrorBody),
         (status = 403, description = "Caller cannot act as this Profile; domain controls suppress items rather than deny the collection.", body = ErrorBody),
-        (status = 404, description = "Not found", body = ErrorBody),
+        (status = 404, description = "not_found: the Profile, or an author actor this server has not fetched (details.field = author). A suppressed domain is never a 404.", body = ErrorBody),
         (status = 501, description = "Contract only; always returned until implemented", body = ErrorBody),
+        (status = 503, description = "search_timeout: the response time limit was exceeded before any resumable progress, so there is nothing consistent to return (a timeout WITH progress is a partial 200 with page.truncated = true). Narrowing with author may succeed.", body = ErrorBody),
     )
 )]
 pub async fn search_personal_notes() -> ApiV1Error {

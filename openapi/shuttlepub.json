@@ -1,6 +1,12 @@
 {
   "components": {
     "schemas": {
+      "ActorUrl": {
+        "description": "Canonical actor ID URL (the ActivityPub `id` of the actor, `https`), the same\nidentity as Emumet `ProfileActorRef.actor_url`. It is NOT an acct/handle:\nconverting a UI `from:@user` into this URL is the BFF/UI responsibility.",
+        "example": "https://remote.example/users/alice",
+        "pattern": "^https://[^\\s#/][^\\s#]{0,2039}$",
+        "type": "string"
+      },
       "ApiStatus": {
         "description": "Body of the example contract route.",
         "properties": {
@@ -566,7 +572,8 @@
           "revision_conflict",
           "emoji_unavailable",
           "internal",
-          "not_implemented"
+          "not_implemented",
+          "search_timeout"
         ],
         "type": "string"
       },
@@ -890,18 +897,101 @@
           }
         ]
       },
+      "NoteSearchItem": {
+        "description": "Search result item. Only an author's own post, reply or quote WITH a comment\nexist; a pure repost (no comment) is not representable at all.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "post"
+                ],
+                "type": "string"
+              },
+              "note": {
+                "$ref": "#/components/schemas/SearchedNote"
+              }
+            },
+            "required": [
+              "note",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "reply"
+                ],
+                "type": "string"
+              },
+              "note": {
+                "$ref": "#/components/schemas/SearchedNote"
+              }
+            },
+            "required": [
+              "note",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "quote"
+                ],
+                "type": "string"
+              },
+              "note": {
+                "$ref": "#/components/schemas/SearchedNote"
+              }
+            },
+            "required": [
+              "note",
+              "kind"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "NoteSearchPageInfo": {
+        "additionalProperties": false,
+        "description": "Paging metadata of a search page. Closed: no total, hidden count or\nsuppression note can be added. `truncated` reports only that the response\ntime limit stopped the scan early; it says nothing about suppressed items.",
+        "properties": {
+          "next_cursor": {
+            "description": "Resume point. Present when a further match is known at evaluation time\nOR when `truncated` is true (then it resumes after the last scanned\nposition, so no match is skipped). Absent only when the scan reached the\nend of the matching range. A following page may still be empty.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "truncated": {
+            "description": "True when the response time limit stopped the scan before the page was\nfull or the range ended. The items are then exactly the matches before\nthe resume point (an exact prefix, no gaps, possibly none) and\n`next_cursor` is always present. A UI may show \"interrupted here\" and\ncontinue with `next_cursor`, which starts a fresh time budget.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "truncated"
+        ],
+        "type": "object"
+      },
       "NoteSearchResponse": {
         "additionalProperties": false,
-        "description": "Post search only (not Account search). No suppression annotation or count.",
+        "description": "Note search page: only notes the Profile may view, newest first. There is no\ntotal, hidden count, suppression note or placeholder. Mute/block suppression\n(S8) leaves no trace. Each page is evaluated against the latest state (no\nsnapshot): an edit, deletion, lost view right or newly added mute/block takes\neffect on the next page, nothing already returned is retracted, and a note is\nnever returned twice. When the time limit is reached after resumable progress\nthe page is a partial 200 with `page.truncated = true`; `503 search_timeout`\nis only for a timeout without any such progress.",
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/FeedItem"
+              "$ref": "#/components/schemas/NoteSearchItem"
             },
             "type": "array"
           },
           "page": {
-            "$ref": "#/components/schemas/ContentPageInfo"
+            "$ref": "#/components/schemas/NoteSearchPageInfo"
           },
           "profile_id": {
             "$ref": "#/components/schemas/ProfileNanoid"
@@ -1217,6 +1307,79 @@
         ],
         "type": "object"
       },
+      "SearchNoteBody": {
+        "description": "What a search result shows of a note. A content-warned note exposes its CW\nonly and can never carry the body, even when only the body matched the query\n(the UI keeps it folded). The two variants are closed and exclusive.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "type": "string"
+              },
+              "display": {
+                "enum": [
+                  "text"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "content",
+              "display"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content_warning": {
+                "type": "string"
+              },
+              "display": {
+                "enum": [
+                  "content_warning"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "content_warning",
+              "display"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "SearchedNote": {
+        "additionalProperties": false,
+        "description": "One matched note of its author. No quoted/replied-to content is included.",
+        "properties": {
+          "author": {
+            "$ref": "#/components/schemas/ActorUrl",
+            "description": "Canonical actor ID URL of the note's author."
+          },
+          "body": {
+            "$ref": "#/components/schemas/SearchNoteBody"
+          },
+          "created_at": {
+            "description": "RFC 3339 UTC creation time. Results are ordered by it, newest first, then\nby `note_id` descending (lowercase hyphenated UUID text order). An edit\nnever changes it.",
+            "example": "2026-11-14T03:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "note_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note_id",
+          "author",
+          "created_at",
+          "body"
+        ],
+        "type": "object"
+      },
       "TimelineResponse": {
         "additionalProperties": false,
         "description": "Profile-scoped timeline: suppressed items leave no trace, including counts.",
@@ -1289,22 +1452,44 @@
   "paths": {
     "/api/v1/profiles/{profile_nanoid}/notes/search": {
       "get": {
-        "description": "Contract only: no real filtering, enforcement or posting. Always 501.",
+        "description": "Author and keyword are both optional but not both absent; an author-less\nkeyword search is part of the standard (engine-less) configuration, bounded\nby `limit`, the `q` length and a response time limit: reaching it with\nresumable progress yields a partial 200 (`page.truncated`), without any\nprogress `503 search_timeout`.\nNotes are the author's own posts, replies and quotes with a comment; pure\nreposts are not searchable. Contract only: no real filtering, enforcement or\nposting. Always 501.",
         "operationId": "searchPersonalNotes",
         "parameters": [
           {
-            "description": "Maximum number of items to return; the server picks a default when omitted.",
+            "description": "Single author as a canonical actor ID URL (never an acct). Optional: when\nomitted the search covers every note the Profile may view. An author the\nserver has not fetched is `404 not_found` (`details.field = author`); an\nauthor whose domain this Profile mutes/blocks is an ordinary empty `200`.",
+            "in": "query",
+            "name": "author",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ActorUrl"
+            }
+          },
+          {
+            "description": "Literal substring matched against a note's body AND its content warning\n(never the quoted/replied-to note's text). `%`, `_` and backslash have no\nspecial meaning. Optional (author-only search lists that author's notes).\nUNDECIDED, not fixed by this contract: case-insensitive matching and\nwhether whitespace-separated words are ANDed; clients must not rely on either.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size, 1..=50; the default is 20.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
+              "default": 20,
               "format": "int32",
+              "maximum": 50,
               "minimum": 1,
               "type": "integer"
             }
           },
           {
-            "description": "Opaque cursor taken from a previous `next_cursor`.",
+            "description": "Opaque cursor from a previous `next_cursor`. It is bound to the Profile,\n`author` and `q` it was issued for; another condition or a malformed value\nis `400 invalid_request` (`details.field = cursor`).",
             "in": "query",
             "name": "cursor",
             "required": false,
@@ -1319,15 +1504,6 @@
             "schema": {
               "$ref": "#/components/schemas/ProfileNanoid"
             }
-          },
-          {
-            "description": "Post search text",
-            "in": "query",
-            "name": "q",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -1340,6 +1516,16 @@
               }
             },
             "description": "Future contract response, never returned by the stub"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request: neither author nor q, empty or over-long q, limit out of range, author not an actor ID URL, or a cursor that is malformed or issued for another Profile/author/q (details.field names the parameter)"
           },
           "401": {
             "content": {
@@ -1369,7 +1555,7 @@
                 }
               }
             },
-            "description": "Not found"
+            "description": "not_found: the Profile, or an author actor this server has not fetched (details.field = author). A suppressed domain is never a 404."
           },
           "501": {
             "content": {
@@ -1380,6 +1566,16 @@
               }
             },
             "description": "Contract only; always returned until implemented"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "search_timeout: the response time limit was exceeded before any resumable progress, so there is nothing consistent to return (a timeout WITH progress is a partial 200 with page.truncated = true). Narrowing with author may succeed."
           }
         },
         "security": [
@@ -1387,7 +1583,7 @@
             "bearer_auth": []
           }
         ],
-        "summary": "Post search only; mute/block suppression leaves no trace.",
+        "summary": "Post search by optional author and keyword; mute/block suppression leaves no trace.",
         "tags": [
           "personal-domain-content"
         ]

@@ -43,6 +43,9 @@ pub enum ErrorCode {
     Internal,
     /// The route is part of the API contract but has no implementation yet.
     NotImplemented,
+    /// A search hit its response time limit without any resumable progress; with
+    /// progress the answer is a partial 200 instead (`page.truncated`).
+    SearchTimeout,
 }
 
 impl ErrorCode {
@@ -57,6 +60,7 @@ impl ErrorCode {
             Self::EmojiUnavailable => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
             Self::NotImplemented => StatusCode::NOT_IMPLEMENTED,
+            Self::SearchTimeout => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 }
