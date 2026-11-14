@@ -128,13 +128,46 @@ pub const NOTE_SEARCH_MAX_QUERY_CHARS: usize = 256;
 /// Maximum length of an `author` actor ID URL, in characters.
 pub const NOTE_SEARCH_MAX_AUTHOR_CHARS: usize = 2048;
 
+/// Whether `url` is an acceptable canonical actor ID URL: an absolute `https` URL
+/// with a non-empty domain host, an optional port, no userinfo, no fragment, no
+/// backslash and no whitespace/control character. Decided by the WHATWG URL
+/// parser, with the `https://` prefix and the first authority character checked
+/// on the raw text because the parser would otherwise accept `https:///x` as
+/// host `x`. The generated `ActorUrl` pattern is a syntactic prefilter of the
+/// same rule; the parser can reject more (for example invalid IDNA).
+pub fn is_canonical_actor_url(url: &str) -> bool {
+    if url.chars().count() > NOTE_SEARCH_MAX_AUTHOR_CHARS
+        || url.contains('#')
+        || url.contains('\\')
+        || url.chars().any(|c| c.is_whitespace() || c.is_control())
+    {
+        return false;
+    }
+    let Some(rest) = url.strip_prefix("https://") else {
+        return false;
+    };
+    if rest.is_empty() || rest.starts_with(['/', '?', ':', '@']) {
+        return false;
+    }
+    match url::Url::parse(url) {
+        Ok(parsed) => {
+            parsed.scheme() == "https"
+                && matches!(parsed.host(), Some(url::Host::Domain(domain)) if !domain.is_empty())
+                && parsed.username().is_empty()
+                && parsed.password().is_none()
+                && parsed.fragment().is_none()
+        }
+        Err(_) => false,
+    }
+}
+
 /// Canonical actor ID URL (the ActivityPub `id` of the actor, `https`), the same
 /// identity as Emumet `ProfileActorRef.actor_url`. It is NOT an acct/handle:
 /// converting a UI `from:@user` into this URL is the BFF/UI responsibility.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(transparent)]
 #[schema(
-    pattern = r"^https://[^\s#/][^\s#]{0,2039}$",
+    pattern = r"^https://[^\s#/:<>?@\[\\\]^|%\x00-\x1f\x7f]+(:([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?([/?][^\s#\\\x00-\x1f\x7f]*)?$",
     example = "https://remote.example/users/alice"
 )]
 pub struct ActorUrl(pub String);
@@ -194,18 +227,13 @@ impl NoteSearchParams {
         {
             add("limit", "must be 1..=50");
         }
-        if let Some(author) = &self.author {
-            let url = &author.0;
-            let host_present = url
-                .strip_prefix("https://")
-                .is_some_and(|rest| !rest.is_empty() && !rest.starts_with('/'));
-            let clean = !url.chars().any(char::is_whitespace) && !url.contains('#');
-            if !host_present || !clean || url.chars().count() > NOTE_SEARCH_MAX_AUTHOR_CHARS {
-                add(
-                    "author",
-                    "must be a canonical https actor ID URL, not an acct",
-                );
-            }
+        if let Some(author) = &self.author
+            && !is_canonical_actor_url(&author.0)
+        {
+            add(
+                "author",
+                "must be a canonical https actor ID URL, not an acct",
+            );
         }
         if problems.is_empty() {
             Ok(())
@@ -232,9 +260,10 @@ pub struct SearchedNote {
     pub note_id: Uuid,
     /// Canonical actor ID URL of the note's author.
     pub author: ActorUrl,
-    /// RFC 3339 UTC creation time. Results are ordered by it, newest first, then
-    /// by `note_id` descending (lowercase hyphenated UUID text order). An edit
-    /// never changes it.
+    /// RFC 3339 UTC creation time. Results are ordered by the instant it denotes
+    /// (fractional seconds and offsets are compared as time values, never as
+    /// text), newest first, then by `note_id` descending (lowercase hyphenated
+    /// UUID text order). An edit never changes it.
     #[schema(format = DateTime, example = "2026-11-14T03:00:00Z")]
     pub created_at: String,
     pub body: SearchNoteBody,
@@ -253,21 +282,61 @@ pub enum NoteSearchItem {
 /// Paging metadata of a search page. Closed: no total, hidden count or
 /// suppression note can be added. `truncated` reports only that the response
 /// time limit stopped the scan early; it says nothing about suppressed items.
+///
+/// Generated as a `oneOf` on the `truncated` literal (see `ContractFixups`):
+/// `truncated: true` REQUIRES a non-empty string `next_cursor`; `truncated:
+/// false` may omit it. A cursor is never `null` and never the empty string, and
+/// deserialization rejects the same cases.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, try_from = "NoteSearchPageInfoWire")]
 pub struct NoteSearchPageInfo {
-    /// Resume point. Present when a further match is known at evaluation time
-    /// OR when `truncated` is true (then it resumes after the last scanned
-    /// position, so no match is skipped). Absent only when the scan reached the
-    /// end of the matching range. A following page may still be empty.
+    /// Resume point, a non-empty opaque string. Present when a further match is
+    /// known at evaluation time OR when `truncated` is true (then it resumes after
+    /// the last scanned position, so no match is skipped). Absent only when the
+    /// scan reached the end of the matching range. A following page may still be
+    /// empty.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(min_length = 1)]
     pub next_cursor: Option<String>,
     /// True when the response time limit stopped the scan before the page was
     /// full or the range ended. The items are then exactly the matches before
     /// the resume point (an exact prefix, no gaps, possibly none) and
-    /// `next_cursor` is always present. A UI may show "interrupted here" and
-    /// continue with `next_cursor`, which starts a fresh time budget.
+    /// `next_cursor` is always present and non-empty. A UI shows "interrupted
+    /// here", stops automatic loading, and may resume only on an explicit action
+    /// with `next_cursor`, which starts a fresh time budget.
     pub truncated: bool,
+}
+
+fn present_cursor<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    // Absent is handled by `default`; a present value must be a string (not null).
+    String::deserialize(deserializer).map(Some)
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NoteSearchPageInfoWire {
+    #[serde(default, deserialize_with = "present_cursor")]
+    next_cursor: Option<String>,
+    truncated: bool,
+}
+
+impl TryFrom<NoteSearchPageInfoWire> for NoteSearchPageInfo {
+    type Error = String;
+
+    fn try_from(wire: NoteSearchPageInfoWire) -> Result<Self, Self::Error> {
+        match (&wire.next_cursor, wire.truncated) {
+            (Some(cursor), _) if cursor.is_empty() => {
+                Err("next_cursor must not be an empty string".to_owned())
+            }
+            (None, true) => Err("a truncated page requires a next_cursor".to_owned()),
+            _ => Ok(Self {
+                next_cursor: wire.next_cursor,
+                truncated: wire.truncated,
+            }),
+        }
+    }
 }
 
 /// Note search page: only notes the Profile may view, newest first. There is no

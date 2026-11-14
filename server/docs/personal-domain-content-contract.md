@@ -131,6 +131,12 @@ the route still answers 501.
   Author-only, keyword-only (no author, **also in the standard engine-less configuration**:
   database substring match bounded by these limits and the time limit) and both are provided.
   A search engine, when present, must not change what a result means.
+  An `author` is accepted only when the URL parser reads it as an absolute `https` URL with a
+  non-empty domain host (optional valid port, no userinfo, no IP-literal host, no fragment, no
+  backslash, whitespace or control character, at most 2048 characters); `https://?alice`,
+  `https://:443/users/alice` and `https:///users/alice` are therefore `400` and never reach the 404
+  actor lookup. The `ActorUrl` `pattern` is the syntactic prefilter of this rule; the parser may
+  reject more (for example invalid IDNA), always as `400`.
 - **Acct resolution is not part of this contract.** The API never accepts an acct or the UI's
   `from:@user` syntax (it is a 400). Turning `from:@user` into an actor ID URL is the BFF/UI's
   job. No existing API resolves a remote acct to an actor ID (Emumet's WebFinger only describes its
@@ -139,7 +145,7 @@ the route still answers 501.
   route with a guess.
 - **Meaning.** `q` is a literal substring of the note's body **and** its content warning; the
   text of a quoted or replied-to note is not searched. `%`, `_` and backslash are plain characters.
-  Results are newest first (`created_at` descending, then `note_id` descending) and only notes the
+  Results are newest first (`created_at` descending compared as the time instant it denotes, so fractional seconds and offsets are never ordered as text, then `note_id` descending) and only notes the
   Profile may view. **Undecided, deliberately not fixed here:** case-insensitive matching and whether
   whitespace-separated words are ANDed.
 - **Result type.** `NoteSearchItem` is `post`, `reply` or `quote` (a quote with a comment) only; a
@@ -153,7 +159,11 @@ the route still answers 501.
 - **Time limit.** Reaching the response time limit **with resumable progress** returns a partial
   `200` with `page.truncated = true`: the items are an exact prefix of the full result (no gaps,
   possibly none) and `next_cursor` is always present, resuming after the last scanned position
-  with a fresh time budget (the UI shows "interrupted here" and may keep auto-loading). Only a timeout
+  with a fresh time budget. `truncated = true` therefore guarantees a present, non-empty string
+  `next_cursor` (the schema is a `oneOf` on the `truncated` literal and the type rejects a missing,
+  null or empty cursor). The UI shows "interrupted here" at the end of the found items and **stops
+  automatic (scroll-triggered) loading**; the cursor stays valid, so a later explicit action may resume
+  from it (note-search-ui ui-spec). Only a timeout
   **without any resumable progress** is `503 search_timeout`. Page metadata is closed: no total,
   hidden count or suppression note.
 - **Cursor.** Opaque. Internally a `(created_at, note_id)` keyset position bound to the Profile,

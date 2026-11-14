@@ -10,7 +10,7 @@ use utoipa::{
     Modify, OpenApi,
     openapi::{
         RefOr, Schema,
-        schema::AdditionalProperties,
+        schema::{AdditionalProperties, OneOfBuilder, SchemaType, Type},
         security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
     },
 };
@@ -95,6 +95,49 @@ impl Modify for ContractFixups {
                         }
                     }
                 }
+            }
+            // utoipa has no container-level maxLength for a newtype.
+            if let Some(RefOr::T(Schema::Object(actor_url))) =
+                components.schemas.get_mut("ActorUrl")
+            {
+                actor_url.max_length = Some(personal_domain::NOTE_SEARCH_MAX_AUTHOR_CHARS);
+            }
+            // A truncated search page must resume: express "truncated: true
+            // requires next_cursor" as a oneOf on the `truncated` literal, which
+            // a plain struct schema cannot say. Both variants stay closed.
+            if let Some(RefOr::T(Schema::Object(page))) =
+                components.schemas.get("NoteSearchPageInfo").cloned()
+            {
+                let variant = |truncated: bool| {
+                    let mut object = page.clone();
+                    object.description = None;
+                    if let Some(RefOr::T(Schema::Object(flag))) =
+                        object.properties.get_mut("truncated")
+                    {
+                        flag.enum_values = Some(vec![Value::Bool(truncated)]);
+                    }
+                    if let Some(RefOr::T(Schema::Object(cursor))) =
+                        object.properties.get_mut("next_cursor")
+                    {
+                        // Option<String> is generated nullable; null is not a cursor.
+                        cursor.schema_type = SchemaType::Type(Type::String);
+                    }
+                    if truncated && !object.required.iter().any(|r| r == "next_cursor") {
+                        object.required.push("next_cursor".to_owned());
+                    }
+                    object.additional_properties =
+                        Some(Box::new(AdditionalProperties::FreeForm(false)));
+                    RefOr::T(Schema::Object(object))
+                };
+                let mut one_of = OneOfBuilder::new()
+                    .item(variant(false))
+                    .item(variant(true))
+                    .build();
+                one_of.description = page.description.clone();
+                components.schemas.insert(
+                    "NoteSearchPageInfo".to_owned(),
+                    RefOr::T(Schema::OneOf(one_of)),
+                );
             }
             components.add_security_scheme(
                 "bearer_auth",

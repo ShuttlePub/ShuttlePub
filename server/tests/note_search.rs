@@ -98,6 +98,16 @@ fn search_schema_fixtures_validate_and_serde_agrees_on_structural_rules() -> Tes
         match (schema, expected) {
             ("NoteSearchResponse", true) => roundtrip::<NoteSearchResponse>(&case["payload"])?,
             ("ErrorBody", true) => roundtrip::<ErrorBody>(&case["payload"])?,
+            ("ActorUrl", _) => {
+                // The URL parser based check and the generated pattern agree.
+                let url = case["payload"].as_str().ok_or("actor url")?;
+                assert_eq!(
+                    server::api_v1::personal_domain::is_canonical_actor_url(url),
+                    expected,
+                    "{}",
+                    case["name"]
+                );
+            }
             ("NoteSearchResponse", false) => {
                 let serde_rejects = case["serde_rejects"].as_bool().ok_or("serde_rejects")?;
                 assert_eq!(
@@ -285,6 +295,17 @@ fn sample_params() -> Vec<Value> {
         json!({"author": "https://remote.example/users/a lice"}),
         json!({"author": long_author}),
         json!({"author": format!("{long_author}a")}),
+        json!({"author": "https://?alice"}),
+        json!({"author": "https://:443/users/alice"}),
+        json!({"author": "https://user@remote.example/users/alice"}),
+        json!({"author": "https://[::1]/users/alice"}),
+        json!({"author": "https://remote.example:99999/users/alice"}),
+        json!({"author": "https://remote<example/users/alice"}),
+        json!({"author": "https://remote.example\\users\\alice"}),
+        json!({"author": "https://"}),
+        json!({"author": "https://remote.example:8443/users/alice"}),
+        json!({"author": "https://Remote.Example/users/alice?x=1"}),
+        json!({"author": "https://remote.example"}),
     ]
 }
 
@@ -328,6 +349,81 @@ fn input_validation_matches_the_generated_parameter_schemas() -> TestResult {
         }
     }
     Ok(())
+}
+
+#[test]
+fn reference_order_is_by_instant_not_by_the_text_of_created_at() -> TestResult {
+    let fixture = fixture("search_ordering.json")?;
+    let notes = fixture["notes"].as_array().ok_or("notes")?;
+    for note in notes {
+        let text = note["created_at"].as_str().ok_or("created_at")?;
+        assert!(parse_instant(text).is_some(), "{text}");
+    }
+    // The text order differs from the time order, so a text comparison is wrong.
+    let mut by_text: Vec<_> = notes.iter().collect();
+    by_text.sort_by_key(|n| std::cmp::Reverse((n["created_at"].as_str(), n["note_id"].as_str())));
+    let text_order: Vec<_> = by_text.iter().map(|n| n["note_id"].clone()).collect();
+    assert_ne!(Value::Array(text_order), fixture["expected_order"]);
+
+    let author = fixture["author"].as_str().ok_or("author")?;
+    let world = World {
+        notes: notes.clone(),
+        policies: Vec::new(),
+        known: BTreeSet::from([author.to_owned()]),
+        viewer: fixture["viewer_profile_id"]
+            .as_str()
+            .ok_or("viewer")?
+            .to_owned(),
+    };
+    let profile = world.viewer.clone();
+    let query = json!({"author": author});
+    let Outcome::Page(all) = search(&world, &profile, &query, None, None)? else {
+        return Err("expected a page".into());
+    };
+    let ids: Vec<_> = all["items"]
+        .as_array()
+        .ok_or("items")?
+        .iter()
+        .map(|i| i["note"]["note_id"].clone())
+        .collect();
+    assert_eq!(Value::Array(ids), fixture["expected_order"]);
+
+    // Paging by cursor keeps the same instant order and never repeats a note.
+    let paging = &fixture["paging"];
+    let mut query = json!({"author": author, "limit": paging["limit"]});
+    let mut cursor: Option<String> = None;
+    let mut pages = Vec::new();
+    loop {
+        let Outcome::Page(page) = search(&world, &profile, &query, cursor.as_deref(), None)? else {
+            return Err("expected a page".into());
+        };
+        let ids: Vec<_> = page["items"]
+            .as_array()
+            .ok_or("items")?
+            .iter()
+            .map(|i| i["note"]["note_id"].clone())
+            .collect();
+        pages.push(Value::Array(ids));
+        cursor = page["page"]["next_cursor"].as_str().map(str::to_owned);
+        if cursor.is_none() || pages.len() > 6 {
+            break;
+        }
+        query["limit"] = paging["limit"].clone();
+    }
+    assert_eq!(Value::Array(pages), paging["pages"]);
+    Ok(())
+}
+
+#[test]
+fn parse_instant_compares_fractions_and_offsets_as_time_values() {
+    let at = |t: &str| parse_instant(t);
+    assert_eq!(at("2026-11-14T03:00:00Z"), at("2026-11-14T12:00:00+09:00"));
+    assert!(at("2026-11-14T03:00:00.25Z") > at("2026-11-14T03:00:00Z"));
+    assert!(at("2026-11-14T03:00:00.5Z") > at("2026-11-14T03:00:00.25Z"));
+    assert!(at("2026-11-14T02:59:59.999999999Z") < at("2026-11-14T03:00:00Z"));
+    assert!(at("2026-11-13T22:30:00-05:00") > at("2026-11-14T03:00:00Z"));
+    assert_eq!(at("not a time"), None);
+    assert_eq!(at("2026-13-01T00:00:00Z"), None);
 }
 
 fn expand(repeat: &Value) -> Result<String, Box<dyn std::error::Error>> {
@@ -417,6 +513,57 @@ impl World {
     }
 }
 
+/// (seconds since the Unix epoch, nanoseconds) of an RFC 3339 date-time, for
+/// the test-only reference ordering. `None` when the text is not a date-time.
+fn parse_instant(text: &str) -> Option<(i64, u32)> {
+    let (date, rest) = text.split_once('T')?;
+    let mut date = date.split('-');
+    let year: i64 = date.next()?.parse().ok()?;
+    let month: i64 = date.next()?.parse().ok()?;
+    let day: i64 = date.next()?.parse().ok()?;
+    if date.next().is_some() || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return None;
+    }
+    let (clock, offset_seconds) = if let Some(clock) = rest.strip_suffix('Z') {
+        (clock, 0)
+    } else {
+        let split = rest.rfind(['+', '-'])?;
+        let (clock, offset) = rest.split_at(split);
+        let sign = if offset.starts_with('-') { -1 } else { 1 };
+        let (hours, minutes) = offset[1..].split_once(':')?;
+        (
+            clock,
+            sign * (hours.parse::<i64>().ok()? * 3600 + minutes.parse::<i64>().ok()? * 60),
+        )
+    };
+    let (whole, fraction) = clock.split_once('.').unwrap_or((clock, ""));
+    let mut parts = whole.split(':');
+    let hour: i64 = parts.next()?.parse().ok()?;
+    let minute: i64 = parts.next()?.parse().ok()?;
+    let second: i64 = parts.next()?.parse().ok()?;
+    if parts.next().is_some() || hour > 23 || minute > 59 || second > 60 {
+        return None;
+    }
+    let nanos = if fraction.is_empty() {
+        0
+    } else if fraction.len() <= 9 && fraction.bytes().all(|b| b.is_ascii_digit()) {
+        format!("{fraction:0<9}").parse().ok()?
+    } else {
+        return None;
+    };
+    // Days from civil (proleptic Gregorian), Howard Hinnant's algorithm.
+    let y = if month <= 2 { year - 1 } else { year };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doy = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    Some((
+        days * 86_400 + hour * 3600 + minute * 60 + second - offset_seconds,
+        nanos,
+    ))
+}
+
 fn host(url: &str) -> String {
     reqwest::Url::parse(url)
         .ok()
@@ -482,7 +629,7 @@ fn search(
     }
     let author = params.author.as_ref().map_or("", |a| a.0.as_str());
     let q = params.q.as_deref().unwrap_or("");
-    let mut after: Option<(String, String)> = None;
+    let mut after: Option<((i64, u32), String)> = None;
     if let Some(cursor) = &params.cursor {
         let parts: Vec<_> = cursor.split('|').collect();
         let [version, c_profile, c_author, c_q, created_at, note_id] = parts[..] else {
@@ -499,7 +646,14 @@ fn search(
                 Some("cursor"),
             );
         }
-        after = Some((created_at.to_owned(), note_id.to_owned()));
+        let Some(instant) = parse_instant(created_at) else {
+            return failure(
+                ErrorCode::InvalidRequest,
+                "malformed cursor",
+                Some("cursor"),
+            );
+        };
+        after = Some((instant, note_id.to_owned()));
     }
     if !author.is_empty() && !world.known.contains(author) {
         return failure(
@@ -508,7 +662,18 @@ fn search(
             Some("author"),
         );
     }
+    // Order by the time VALUE, never by its text: fractional seconds and offsets
+    // make the RFC 3339 strings sort differently from the instants they denote.
     let key = |n: &Value| {
+        (
+            n["created_at"]
+                .as_str()
+                .and_then(parse_instant)
+                .unwrap_or((i64::MIN, 0)),
+            n["note_id"].as_str().unwrap_or_default().to_owned(),
+        )
+    };
+    let text_key = |n: &Value| {
         (
             n["created_at"].as_str().unwrap_or_default().to_owned(),
             n["note_id"].as_str().unwrap_or_default().to_owned(),
@@ -540,7 +705,7 @@ fn search(
             break;
         }
         scanned += 1;
-        frontier = Some(key(note));
+        frontier = Some(text_key(note));
         if matches(note) {
             found.push(note);
             if found.len() == limit {
@@ -580,7 +745,7 @@ fn search(
     let resume = if truncated {
         frontier
     } else if more {
-        found.last().map(|last| key(last))
+        found.last().map(|last| text_key(last))
     } else {
         None
     };
@@ -628,7 +793,10 @@ fn assert_outcome(
                 "{label}"
             );
             if response["page"]["truncated"] == true {
-                assert!(next.is_some(), "{label}: a truncated page must resume");
+                assert!(
+                    next.as_deref().is_some_and(|cursor| !cursor.is_empty()),
+                    "{label}: a truncated page must resume with a non-empty cursor"
+                );
             }
             check(spec, "NoteSearchResponse", &response)?;
             roundtrip::<NoteSearchResponse>(&response)?;

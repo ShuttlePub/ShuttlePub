@@ -661,5 +661,171 @@
       }
     },
     "serde_rejects": true
+  },
+  {
+    "name": "search_page_truncated_requires_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": true
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_truncated_forbids_null_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": true,
+        "next_cursor": null
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_truncated_forbids_empty_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": true,
+        "next_cursor": ""
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_complete_forbids_null_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": false,
+        "next_cursor": null
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_complete_forbids_empty_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": false,
+        "next_cursor": ""
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_complete_may_omit_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": false
+      }
+    }
+  },
+  {
+    "name": "search_page_complete_with_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": false,
+        "next_cursor": "opaque"
+      }
+    }
+  },
+  {
+    "name": "actor_url_rejects_empty_authority_with_query",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://?alice"
+  },
+  {
+    "name": "actor_url_rejects_empty_host_with_port",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://:443/users/alice"
+  },
+  {
+    "name": "actor_url_rejects_userinfo",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://user@remote.example/users/alice"
+  },
+  {
+    "name": "actor_url_rejects_ip_literal_host",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://[::1]/users/alice"
+  },
+  {
+    "name": "actor_url_rejects_port_out_of_range",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://remote.example:99999/users/alice"
+  },
+  {
+    "name": "actor_url_rejects_forbidden_host_character",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://remote<example/users/alice"
+  },
+  {
+    "name": "actor_url_rejects_backslash",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://remote.example\\users\\alice"
+  },
+  {
+    "name": "actor_url_rejects_control_character",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://remote.example/users/alice\u0000"
+  },
+  {
+    "name": "actor_url_rejects_empty_after_scheme",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://"
+  },
+  {
+    "name": "actor_url_accepts_port",
+    "schema": "ActorUrl",
+    "valid": true,
+    "payload": "https://remote.example:8443/users/alice"
+  },
+  {
+    "name": "actor_url_accepts_uppercase_host_and_query",
+    "schema": "ActorUrl",
+    "valid": true,
+    "payload": "https://Remote.Example/users/alice?x=1"
+  },
+  {
+    "name": "actor_url_accepts_host_only",
+    "schema": "ActorUrl",
+    "valid": true,
+    "payload": "https://remote.example"
   }
 ]

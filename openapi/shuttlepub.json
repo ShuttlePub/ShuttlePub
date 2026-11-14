@@ -4,7 +4,8 @@
       "ActorUrl": {
         "description": "Canonical actor ID URL (the ActivityPub `id` of the actor, `https`), the same\nidentity as Emumet `ProfileActorRef.actor_url`. It is NOT an acct/handle:\nconverting a UI `from:@user` into this URL is the BFF/UI responsibility.",
         "example": "https://remote.example/users/alice",
-        "pattern": "^https://[^\\s#/][^\\s#]{0,2039}$",
+        "maxLength": 2048,
+        "pattern": "^https://[^\\s#/:<>?@\\[\\\\\\]^|%\\x00-\\x1f\\x7f]+(:([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?([/?][^\\s#\\\\\\x00-\\x1f\\x7f]*)?$",
         "type": "string"
       },
       "ApiStatus": {
@@ -1004,25 +1005,52 @@
         ]
       },
       "NoteSearchPageInfo": {
-        "additionalProperties": false,
-        "description": "Paging metadata of a search page. Closed: no total, hidden count or\nsuppression note can be added. `truncated` reports only that the response\ntime limit stopped the scan early; it says nothing about suppressed items.",
-        "properties": {
-          "next_cursor": {
-            "description": "Resume point. Present when a further match is known at evaluation time\nOR when `truncated` is true (then it resumes after the last scanned\nposition, so no match is skipped). Absent only when the scan reached the\nend of the matching range. A following page may still be empty.",
-            "type": [
-              "string",
-              "null"
-            ]
+        "description": "Paging metadata of a search page. Closed: no total, hidden count or\nsuppression note can be added. `truncated` reports only that the response\ntime limit stopped the scan early; it says nothing about suppressed items.\n\nGenerated as a `oneOf` on the `truncated` literal (see `ContractFixups`):\n`truncated: true` REQUIRES a non-empty string `next_cursor`; `truncated:\nfalse` may omit it. A cursor is never `null` and never the empty string, and\ndeserialization rejects the same cases.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "next_cursor": {
+                "description": "Resume point, a non-empty opaque string. Present when a further match is\nknown at evaluation time OR when `truncated` is true (then it resumes after\nthe last scanned position, so no match is skipped). Absent only when the\nscan reached the end of the matching range. A following page may still be\nempty.",
+                "minLength": 1,
+                "type": "string"
+              },
+              "truncated": {
+                "description": "True when the response time limit stopped the scan before the page was\nfull or the range ended. The items are then exactly the matches before\nthe resume point (an exact prefix, no gaps, possibly none) and\n`next_cursor` is always present and non-empty. A UI shows \"interrupted\nhere\", stops automatic loading, and may resume only on an explicit action\nwith `next_cursor`, which starts a fresh time budget.",
+                "enum": [
+                  false
+                ],
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "truncated"
+            ],
+            "type": "object"
           },
-          "truncated": {
-            "description": "True when the response time limit stopped the scan before the page was\nfull or the range ended. The items are then exactly the matches before\nthe resume point (an exact prefix, no gaps, possibly none) and\n`next_cursor` is always present. A UI may show \"interrupted here\" and\ncontinue with `next_cursor`, which starts a fresh time budget.",
-            "type": "boolean"
+          {
+            "additionalProperties": false,
+            "properties": {
+              "next_cursor": {
+                "description": "Resume point, a non-empty opaque string. Present when a further match is\nknown at evaluation time OR when `truncated` is true (then it resumes after\nthe last scanned position, so no match is skipped). Absent only when the\nscan reached the end of the matching range. A following page may still be\nempty.",
+                "minLength": 1,
+                "type": "string"
+              },
+              "truncated": {
+                "description": "True when the response time limit stopped the scan before the page was\nfull or the range ended. The items are then exactly the matches before\nthe resume point (an exact prefix, no gaps, possibly none) and\n`next_cursor` is always present and non-empty. A UI shows \"interrupted\nhere\", stops automatic loading, and may resume only on an explicit action\nwith `next_cursor`, which starts a fresh time budget.",
+                "enum": [
+                  true
+                ],
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "truncated",
+              "next_cursor"
+            ],
+            "type": "object"
           }
-        },
-        "required": [
-          "truncated"
-        ],
-        "type": "object"
+        ]
       },
       "NoteSearchResponse": {
         "additionalProperties": false,
@@ -1406,7 +1434,7 @@
             "$ref": "#/components/schemas/SearchNoteBody"
           },
           "created_at": {
-            "description": "RFC 3339 UTC creation time. Results are ordered by it, newest first, then\nby `note_id` descending (lowercase hyphenated UUID text order). An edit\nnever changes it.",
+            "description": "RFC 3339 UTC creation time. Results are ordered by the instant it denotes\n(fractional seconds and offsets are compared as time values, never as\ntext), newest first, then by `note_id` descending (lowercase hyphenated\nUUID text order). An edit never changes it.",
             "example": "2026-11-14T03:00:00Z",
             "format": "date-time",
             "type": "string"
