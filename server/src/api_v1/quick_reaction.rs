@@ -255,8 +255,10 @@ pub enum EmojiImageState {
     Present,
     /// No image can be shown (never fetched, fetch failed, or deleted at the
     /// origin and expired locally): show `:shortcode:` instead. `image_url` is
-    /// absent. The emoji stays `available` and can still be selected from an
-    /// existing chip (an external emoji deleted at its origin looks like this).
+    /// absent. A missing image does not change `availability` by itself: an
+    /// `available` emoji that satisfies the usage rules can still be selected
+    /// (an external emoji deleted at its origin looks like this and is
+    /// selectable from an existing chip).
     Missing,
 }
 
