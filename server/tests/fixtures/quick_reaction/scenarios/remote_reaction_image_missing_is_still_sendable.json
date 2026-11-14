@@ -1,0 +1,105 @@
+{
+  "name": "remote_reaction_image_missing_is_still_sendable",
+  "description": "A missing image (image_state missing) is shown as :name: but an available external emoji can still be selected from its chip (d09-q02).",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available",
+        "image_state": "present",
+        "usage": "anywhere"
+      },
+      "partycat@remote.example": {
+        "shortcode": "partycat",
+        "image_url": "https://remote.example/emoji/partycat.png",
+        "availability": "available",
+        "origin": "remote.example",
+        "image_state": "present",
+        "usage": "existing_reaction_only"
+      },
+      "partycat@other.example": {
+        "shortcode": "partycat",
+        "image_url": "https://other.example/emoji/partycat.png",
+        "availability": "available",
+        "origin": "other.example",
+        "image_state": "present",
+        "usage": "existing_reaction_only"
+      },
+      "ghostcat@remote.example": {
+        "shortcode": "ghostcat",
+        "availability": "available",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+      },
+      "goneblob@remote.example": {
+        "shortcode": "goneblob",
+        "availability": "unavailable",
+        "reason": "deleted",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+      }
+    },
+    "settings": {
+      "revision": 0,
+      "favorites": []
+    },
+    "reaction": null,
+    "chips": [
+      {
+        "type": "custom",
+        "id": "ghostcat@remote.example"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "custom",
+          "id": "ghostcat@remote.example"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "custom",
+              "id": "ghostcat@remote.example"
+            },
+            "availability": "available",
+            "shortcode": "ghostcat",
+            "origin": "remote.example",
+            "image_state": "missing",
+            "usage": "existing_reaction_only"
+          }
+        }
+      }
+    },
+    {
+      "operation": "getNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "custom",
+              "id": "ghostcat@remote.example"
+            },
+            "availability": "available",
+            "shortcode": "ghostcat",
+            "origin": "remote.example",
+            "image_state": "missing",
+            "usage": "existing_reaction_only"
+          }
+        }
+      }
+    }
+  ]
+}

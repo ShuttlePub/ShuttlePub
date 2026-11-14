@@ -49,6 +49,45 @@
 //! * Validation errors (`invalid_request`) are reported with per-field
 //!   [`FieldViolation`]s whose `field` is a JSON pointer into the body.
 //!
+//! # External custom emoji (D09 / `remote-emoji-reuse-api-contract`)
+//!
+//! A custom emoji that comes from another server is an *external* emoji.
+//! [`EmojiRef`] is unchanged (the identity stays an opaque, server assigned id
+//! that differs per origin, so two emoji with the same shortcode on different
+//! servers are different emoji). The extra facts live in [`EmojiView`]:
+//!
+//! * `origin`: the originating domain. Present exactly for external emoji;
+//!   absent for Unicode and for custom emoji of this server. This is what the
+//!   UI uses for the globe mark that tells same-named emoji apart, on reaction
+//!   chips (`EmojiReactionCount.view`, S8) and on the own selection alike.
+//! * `image_state`: `present` or `missing`, independent of `availability`. A
+//!   `missing` image is shown as `:shortcode:` and the emoji can still be
+//!   selected while it is `available` (the image just could not be fetched, or
+//!   the origin deleted it and the local copy expired).
+//! * `usage`: `existing_reaction_only` (external emoji: usable only through an
+//!   existing chip of the Note) or `anywhere`. External emoji are never offered
+//!   in the picker, in recents or as favourites.
+//!
+//! Settings `PUT` refuses an external emoji with `422 emoji_usage_not_allowed`
+//! (`details` point at `/favorites/{index}`) and no settings answer ever lists
+//! one. Reaction `PUT` applies this order (the first matching rule answers):
+//!
+//! 1. availability: an unavailable emoji is `422 emoji_unavailable`;
+//! 2. the emoji is already the current selection: `200`, no-op;
+//! 3. external emoji and the Note has no chip of that same emoji:
+//!    `422 emoji_usage_not_allowed`;
+//! 4. external emoji and the Profile already reacted with another emoji:
+//!    `409 conflict` (no direct replacement, the current reaction stays; the
+//!    client removes it with `DELETE` first);
+//! 5. select the emoji: `200`.
+//!
+//! Rules 3 and 4 only concern `usage: existing_reaction_only`; Unicode and
+//! same-server emoji keep the replacement semantics described above. Removing
+//! the only reaction of an external emoji can remove its chip, so selecting it
+//! again afterwards may be rule 3. `DELETE` is unchanged. Nothing of D03 q09
+//! (delayed unreaction call) or q10 (suppressed repeat notifications) appears
+//! in any response, so they need no field.
+//!
 //! Order of checks (when implemented): authentication (401), Profile
 //! permission (403), existence (404), input validation (400), then the
 //! state-dependent outcomes above. Stubs skip all of them and answer 501.
@@ -61,6 +100,7 @@ use utoipa::{
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
+use super::personal_domain::ControlDomain;
 use super::{ApiV1Error, ErrorBody, ErrorCode, FieldViolation};
 
 /// Maximum number of favourite emoji per Profile (decision d03-q02).
@@ -187,6 +227,30 @@ pub enum EmojiAvailability {
     Unavailable,
 }
 
+/// Whether the image of a custom emoji can be shown. Independent of
+/// [`EmojiAvailability`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EmojiImageState {
+    /// `image_url` is served and the image can be shown.
+    Present,
+    /// No image can be shown (never fetched, fetch failed, or deleted at the
+    /// origin and expired locally): show `:shortcode:` instead. `image_url` is
+    /// absent. The emoji may still be `available` and selectable.
+    Missing,
+}
+
+/// Where a custom emoji may be used.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EmojiUsage {
+    /// Only by pressing an existing reaction chip of the same emoji on a Note
+    /// (external emoji). Never in the picker, recents or favourites.
+    ExistingReactionOnly,
+    /// Anywhere an emoji can be chosen.
+    Anywhere,
+}
+
 /// Why an emoji is unavailable.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -214,6 +278,59 @@ pub struct EmojiView {
     /// emoji and for deleted custom emoji.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image_url: Option<String>,
+    /// Originating domain of an external custom emoji (same canonical host
+    /// form as the E8 domain controls). Absent for Unicode emoji and for custom
+    /// emoji of this server, so its presence is the external mark (globe).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<ControlDomain>,
+    /// Whether the image can be shown; independent of `availability`. Present
+    /// for custom emoji, absent for Unicode emoji. `present` goes with
+    /// `image_url`, `missing` means show `:shortcode:`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_state: Option<EmojiImageState>,
+    /// Where the emoji may be used. Present for custom emoji (an external one
+    /// is `existing_reaction_only`); absent means `anywhere` (Unicode emoji).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub usage: Option<EmojiUsage>,
+}
+
+impl EmojiView {
+    /// The consistency rules every `EmojiView` the server sends obeys.
+    ///
+    /// Unicode emoji carry no custom emoji data; an `unavailable_reason` goes
+    /// with `unavailable` only; `image_state` and `image_url` agree; an external
+    /// emoji (with `origin`) is `existing_reaction_only`.
+    pub fn check_consistency(&self) -> Result<(), String> {
+        if matches!(self.availability, EmojiAvailability::Available)
+            == self.unavailable_reason.is_some()
+        {
+            return Err("unavailable_reason must be present exactly when unavailable".into());
+        }
+        if matches!(self.emoji, EmojiRef::Unicode { .. }) {
+            let custom_only = self.origin.is_some()
+                || self.image_state.is_some()
+                || self.shortcode.is_some()
+                || self.image_url.is_some()
+                || self.usage == Some(EmojiUsage::ExistingReactionOnly);
+            if custom_only || self.availability != EmojiAvailability::Available {
+                return Err("a Unicode emoji is always available and has no custom data".into());
+            }
+            return Ok(());
+        }
+        match self.image_state {
+            Some(EmojiImageState::Present) if self.image_url.is_none() => {
+                return Err("image_state present needs image_url".into());
+            }
+            Some(EmojiImageState::Missing) if self.image_url.is_some() => {
+                return Err("image_state missing must not carry image_url".into());
+            }
+            _ => {}
+        }
+        if self.origin.is_some() && self.usage != Some(EmojiUsage::ExistingReactionOnly) {
+            return Err("an external emoji must be existing_reaction_only".into());
+        }
+        Ok(())
+    }
 }
 
 fn emoji_ref_array() -> RefOr<Schema> {
@@ -247,6 +364,7 @@ pub struct QuickReactionSettings {
     pub revision: u64,
     /// Ordered favourites, at most 5 and pairwise distinct by `emoji`.
     /// Unavailable favourites are kept and flagged, never removed silently.
+    /// An external emoji (`usage: existing_reaction_only`) is never listed.
     #[schema(schema_with = emoji_view_array)]
     pub favorites: Vec<EmojiView>,
 }
@@ -296,7 +414,8 @@ pub struct ReactionState {
     /// The Note the reaction belongs to.
     pub note_id: Uuid,
     /// The selected emoji, or `null` when the Profile has not reacted. The
-    /// emoji may be `unavailable`; it can still be removed.
+    /// emoji may be `unavailable`, or external (`origin` set); it can still be
+    /// removed.
     #[schema(required = true, nullable = true)]
     pub emoji: Option<EmojiView>,
 }
@@ -407,7 +526,7 @@ pub async fn get_quick_reaction_settings() -> ApiV1Error {
         (status = 403, description = "The caller may not act as this Profile (forbidden)", body = ErrorBody),
         (status = 404, description = "Unknown Profile (not_found)", body = ErrorBody),
         (status = 409, description = "expected_revision is stale (revision_conflict); current_revision tells the stored revision", body = RevisionConflictBody),
-        (status = 422, description = "A newly added emoji is unavailable (emoji_unavailable); favorites already stored may stay (details point at the offending /favorites/{index})", body = ErrorBody),
+        (status = 422, description = "A newly added emoji is unavailable (emoji_unavailable), or is an external emoji that may not be a favorite (emoji_usage_not_allowed, usage existing_reaction_only); favorites already stored may stay (details point at the offending /favorites/{index}). Unavailable is reported before usage", body = ErrorBody),
         (status = 501, description = "Not implemented yet (not_implemented)", body = ErrorBody),
     )
 )]
@@ -442,10 +561,15 @@ pub async fn get_note_reaction() -> ApiV1Error {
 /// Select the reaction of a Profile on a Note (stub: always answers 501)
 ///
 /// Idempotent: repeating the same emoji returns `200` with the same state. A
-/// different emoji replaces the previous one (1 Profile, 1 Note, 1 reaction).
-/// Availability is checked first: an unavailable emoji is always `422`, even
-/// when it is the emoji already selected (the selection then stays, and can be
-/// removed with `DELETE`).
+/// different emoji replaces the previous one (1 Profile, 1 Note, 1 reaction),
+/// except for external emoji (`usage: existing_reaction_only`, see the module
+/// docs). Rules, first match answers: 1 an unavailable emoji is `422
+/// emoji_unavailable`, even when it is the emoji already selected (the
+/// selection then stays and can be removed with `DELETE`); 2 the emoji equals
+/// the current selection: `200` no-op; 3 external emoji without a chip of the
+/// same emoji on the Note: `422 emoji_usage_not_allowed`; 4 external emoji while
+/// the Profile reacted with another emoji: `409 conflict` (no direct
+/// replacement, the current reaction stays); 5 select: `200`.
 #[utoipa::path(
     put,
     path = "/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction",
@@ -463,7 +587,8 @@ pub async fn get_note_reaction() -> ApiV1Error {
         (status = 401, description = "Not authenticated (unauthorized)", body = ErrorBody),
         (status = 403, description = "Forbidden: caller may not act as Profile, or E8 domain block refuses the new emoji operation. Block uses optional ErrorBody.domain_block (EmojiReactionDomainBlock); explicit unblock required first. Mute adds no restriction. Existing S3 error shape remains valid.", body = ErrorBody),
         (status = 404, description = "Unknown Profile or Note (not_found)", body = ErrorBody),
-        (status = 422, description = "The emoji is unavailable (emoji_unavailable), checked before the repeat no-op rule; the current reaction stays", body = ErrorBody),
+        (status = 409, description = "An external emoji (usage existing_reaction_only) was requested while the Profile already reacted with another emoji (conflict); the current reaction stays, DELETE it first", body = ErrorBody),
+        (status = 422, description = "The emoji is unavailable (emoji_unavailable, checked before the repeat no-op rule), or an external emoji has no chip on the Note (emoji_usage_not_allowed, checked after it); the current reaction stays", body = ErrorBody),
         (status = 501, description = "Not implemented yet (not_implemented)", body = ErrorBody),
     )
 )]

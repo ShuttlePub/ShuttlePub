@@ -208,11 +208,13 @@ fn route_and_schema_snapshot() -> TestResult {
             "DomainOperationPermission",
             "EmbeddedNotePresentation",
             "EmojiAvailability",
+            "EmojiImageState",
             "EmojiReactionCount",
             "EmojiReactionDomainBlock",
             "EmojiReactionOperation",
             "EmojiRef",
             "EmojiUnavailableReason",
+            "EmojiUsage",
             "EmojiView",
             "ErrorBody",
             "ErrorCode",
@@ -260,6 +262,7 @@ fn route_and_schema_snapshot() -> TestResult {
             "conflict",
             "revision_conflict",
             "emoji_unavailable",
+            "emoji_usage_not_allowed",
             "internal",
             "not_implemented"
         ])

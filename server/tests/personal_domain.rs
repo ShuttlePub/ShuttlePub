@@ -8,7 +8,7 @@ use http_body_util::BodyExt;
 use jsonschema::Draft;
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
-use server::api_v1::{ErrorBody, ErrorCode, personal_domain::*};
+use server::api_v1::{ErrorBody, ErrorCode, personal_domain::*, quick_reaction::EmojiRef};
 use std::{collections::BTreeSet, path::PathBuf};
 use tower::ServiceExt;
 
@@ -408,6 +408,97 @@ fn accepted_reaction_counts_survive_block_and_refused_attempts_add_nothing() -> 
     assert_eq!(counts["likes"], 7);
     assert_eq!(counts["emoji"][0]["count"], 3);
     assert_eq!(counts["emoji"][1]["count"], 2);
+    Ok(())
+}
+
+#[test]
+fn counts_fixtures_carry_a_view_for_every_custom_chip() -> TestResult {
+    let f = fixture("counts.json")?;
+    for name in ["before", "after_block", "after_rejections"] {
+        let counts: ReactionCounts = serde_json::from_value(f[name].clone())?;
+        for chip in &counts.emoji {
+            chip.check_consistency()?;
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn external_emoji_chips_expose_their_origin_per_chip() -> TestResult {
+    let spec = spec()?;
+    let f = fixture("remote_emoji_chips.json")?;
+    let external_ids = f["external_ids"].as_object().ok_or("external_ids")?;
+    for (name, payload) in f["valid"].as_object().ok_or("valid")? {
+        check(&spec, "ReactionCounts", payload)?;
+        roundtrip::<ReactionCounts>(payload)?;
+        let counts: ReactionCounts = serde_json::from_value(payload.clone())?;
+        let mut seen = BTreeSet::new();
+        let mut external = Vec::new();
+        for chip in &counts.emoji {
+            chip.check_consistency()
+                .map_err(|e| format!("{name}: {e}"))?;
+            assert!(
+                seen.insert(serde_json::to_string(&chip.emoji)?),
+                "{name}: duplicate chip"
+            );
+            // The globe mark is decided per chip from view.origin alone.
+            if chip.view.as_ref().is_some_and(|v| v.origin.is_some()) {
+                let EmojiRef::Custom { id } = &chip.emoji else {
+                    return Err(format!("{name}: only custom emoji can be external").into());
+                };
+                external.push(id.clone());
+            }
+        }
+        let expected: Vec<String> = serde_json::from_value(external_ids[name].clone())?;
+        assert_eq!(external, expected, "{name}");
+    }
+    // Same shortcode on different servers: different chips told apart by origin.
+    let same = &f["valid"]["same_name_different_origin"]["emoji"];
+    let shortcodes: Vec<&Value> = same
+        .as_array()
+        .ok_or("chips")?
+        .iter()
+        .map(|c| &c["view"]["shortcode"])
+        .collect();
+    assert!(shortcodes.iter().all(|s| **s == json!("partycat")));
+    let origins: BTreeSet<String> = same
+        .as_array()
+        .ok_or("chips")?
+        .iter()
+        .map(|c| c["view"]["origin"].to_string())
+        .collect();
+    assert_eq!(
+        origins.len(),
+        3,
+        "remote, other and local (null) origins differ"
+    );
+    Ok(())
+}
+
+#[test]
+fn invalid_external_emoji_chips_are_rejected() -> TestResult {
+    let spec = spec()?;
+    let f = fixture("remote_emoji_chips.json")?;
+    for (name, payload) in f["schema_invalid"].as_object().ok_or("schema_invalid")? {
+        assert!(
+            !valid(&spec, &component(&spec, "ReactionCounts"), payload)?,
+            "{name} must violate the schema"
+        );
+    }
+    for (name, payload) in f["schema_valid_but_inconsistent"]
+        .as_object()
+        .ok_or("inconsistent")?
+    {
+        check(&spec, "ReactionCounts", payload)?;
+        let counts: ReactionCounts = serde_json::from_value(payload.clone())?;
+        assert!(
+            counts
+                .emoji
+                .iter()
+                .any(|chip| chip.check_consistency().is_err()),
+            "{name} must break the chip rules"
+        );
+    }
     Ok(())
 }
 

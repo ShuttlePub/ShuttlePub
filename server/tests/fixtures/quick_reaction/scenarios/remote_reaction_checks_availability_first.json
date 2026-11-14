@@ -1,0 +1,132 @@
+{
+  "name": "remote_reaction_checks_availability_first",
+  "description": "Order of checks: availability (422 emoji_unavailable) comes before the repeat no-op and before the chip rule; DELETE never depends on it.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available",
+        "image_state": "present",
+        "usage": "anywhere"
+      },
+      "partycat@remote.example": {
+        "shortcode": "partycat",
+        "image_url": "https://remote.example/emoji/partycat.png",
+        "availability": "available",
+        "origin": "remote.example",
+        "image_state": "present",
+        "usage": "existing_reaction_only"
+      },
+      "partycat@other.example": {
+        "shortcode": "partycat",
+        "image_url": "https://other.example/emoji/partycat.png",
+        "availability": "available",
+        "origin": "other.example",
+        "image_state": "present",
+        "usage": "existing_reaction_only"
+      },
+      "ghostcat@remote.example": {
+        "shortcode": "ghostcat",
+        "availability": "available",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+      },
+      "goneblob@remote.example": {
+        "shortcode": "goneblob",
+        "availability": "unavailable",
+        "reason": "deleted",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+      }
+    },
+    "settings": {
+      "revision": 0,
+      "favorites": []
+    },
+    "reaction": {
+      "type": "custom",
+      "id": "goneblob@remote.example"
+    },
+    "chips": []
+  },
+  "steps": [
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "custom",
+          "id": "goneblob@remote.example"
+        }
+      },
+      "expect": {
+        "status": 422,
+        "body": {
+          "code": "emoji_unavailable",
+          "message": "an emoji in the request is unavailable",
+          "details": [
+            {
+              "field": "/emoji",
+              "message": "emoji is unavailable"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "getNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "custom",
+              "id": "goneblob@remote.example"
+            },
+            "availability": "unavailable",
+            "unavailable_reason": "deleted",
+            "shortcode": "goneblob",
+            "origin": "remote.example",
+            "image_state": "missing",
+            "usage": "existing_reaction_only"
+          }
+        }
+      }
+    },
+    {
+      "operation": "deleteNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": null
+        }
+      }
+    },
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "custom",
+          "id": "goneblob@remote.example"
+        }
+      },
+      "expect": {
+        "status": 422,
+        "body": {
+          "code": "emoji_unavailable",
+          "message": "an emoji in the request is unavailable",
+          "details": [
+            {
+              "field": "/emoji",
+              "message": "emoji is unavailable"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
