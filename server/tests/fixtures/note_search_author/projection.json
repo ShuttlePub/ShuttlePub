@@ -291,6 +291,16 @@
       "fetched": true,
       "publicly_referable": true,
       "local_username": null
+    },
+    {
+      "key": "d1",
+      "actor_url": "https://actor-host.example/users/dana",
+      "acct": "dana@actor-host.example",
+      "display_name": "Dana",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
     }
   ],
   "verified_acct_mappings": [
@@ -333,6 +343,10 @@
     {
       "acct": "taro@xn--wgv71a.example",
       "actor_url": "https://xn--wgv71a.example/users/taro"
+    },
+    {
+      "acct": "dana@webfinger.example",
+      "actor_url": "https://actor-host.example/users/dana"
     }
   ],
   "viewers": {
@@ -629,6 +643,23 @@
       "viewer": "viewer_b",
       "prefix": "zzzz",
       "expect": []
+    },
+    {
+      "name": "suggestion_shows_the_stored_display_acct_which_differs_from_the_verified_one",
+      "viewer": "viewer_b",
+      "prefix": "dana@actor",
+      "expect": [
+        "https://actor-host.example/users/dana"
+      ],
+      "note": "the display acct dana@actor-host.example is shown here but never resolves; the verified acct is dana@webfinger.example"
+    },
+    {
+      "name": "suggestion_by_display_name_of_the_same_author",
+      "viewer": "viewer_b",
+      "prefix": "dan",
+      "expect": [
+        "https://actor-host.example/users/dana"
+      ]
     }
   ],
   "resolve_cases": [
@@ -637,7 +668,8 @@
       "viewer": "viewer_a",
       "acct": "alice",
       "expect": {
-        "ok": "https://local.example/users/alice"
+        "ok": "https://local.example/users/alice",
+        "acct": "alice@local.example"
       }
     },
     {
@@ -645,7 +677,8 @@
       "viewer": "viewer_a",
       "acct": "@alice",
       "expect": {
-        "ok": "https://local.example/users/alice"
+        "ok": "https://local.example/users/alice",
+        "acct": "alice@local.example"
       }
     },
     {
@@ -653,7 +686,8 @@
       "viewer": "viewer_a",
       "acct": "alice@local.example",
       "expect": {
-        "ok": "https://local.example/users/alice"
+        "ok": "https://local.example/users/alice",
+        "acct": "alice@local.example"
       }
     },
     {
@@ -661,7 +695,8 @@
       "viewer": "viewer_a",
       "acct": "@alice@local.example",
       "expect": {
-        "ok": "https://local.example/users/alice"
+        "ok": "https://local.example/users/alice",
+        "acct": "alice@local.example"
       }
     },
     {
@@ -669,7 +704,8 @@
       "viewer": "viewer_a",
       "acct": "alice@LOCAL.Example",
       "expect": {
-        "ok": "https://local.example/users/alice"
+        "ok": "https://local.example/users/alice",
+        "acct": "alice@local.example"
       }
     },
     {
@@ -710,7 +746,8 @@
       "viewer": "viewer_a",
       "acct": "alice@remote.example",
       "expect": {
-        "ok": "https://remote.example/users/alice"
+        "ok": "https://remote.example/users/alice",
+        "acct": "alice@remote.example"
       }
     },
     {
@@ -718,7 +755,8 @@
       "viewer": "viewer_a",
       "acct": "@alice@Remote.EXAMPLE",
       "expect": {
-        "ok": "https://remote.example/users/alice"
+        "ok": "https://remote.example/users/alice",
+        "acct": "alice@remote.example"
       }
     },
     {
@@ -781,7 +819,8 @@
       "viewer": "viewer_a",
       "acct": "taro@日本.example",
       "expect": {
-        "ok": "https://xn--wgv71a.example/users/taro"
+        "ok": "https://xn--wgv71a.example/users/taro",
+        "acct": "taro@xn--wgv71a.example"
       }
     },
     {
@@ -789,7 +828,8 @@
       "viewer": "viewer_a",
       "acct": "carol@muted.example",
       "expect": {
-        "ok": "https://muted.example/users/carol"
+        "ok": "https://muted.example/users/carol",
+        "acct": "carol@muted.example"
       }
     },
     {
@@ -797,7 +837,8 @@
       "viewer": "viewer_a",
       "acct": "dave@blocked.example",
       "expect": {
-        "ok": "https://blocked.example/users/dave"
+        "ok": "https://blocked.example/users/dave",
+        "acct": "dave@blocked.example"
       }
     },
     {
@@ -805,7 +846,28 @@
       "viewer": "viewer_c",
       "acct": "dave@blocked.example",
       "expect": {
-        "ok": "https://blocked.example/users/dave"
+        "ok": "https://blocked.example/users/dave",
+        "acct": "dave@blocked.example"
+      }
+    },
+    {
+      "name": "verified_acct_host_may_differ_from_the_actor_host_and_is_what_is_returned",
+      "viewer": "viewer_a",
+      "acct": "dana@webfinger.example",
+      "expect": {
+        "ok": "https://actor-host.example/users/dana",
+        "acct": "dana@webfinger.example"
+      }
+    },
+    {
+      "name": "display_acct_built_from_the_actor_host_does_not_resolve_even_when_it_is_the_stored_acct",
+      "viewer": "viewer_a",
+      "acct": "dana@actor-host.example",
+      "expect": {
+        "err": {
+          "code": "not_found",
+          "field": "acct"
+        }
       }
     }
   ]

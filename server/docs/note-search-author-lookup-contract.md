@@ -141,9 +141,9 @@ re-pin before they can parse these codes.
 pure input checks (accepted/rejected accts and prefixes, length boundaries, host normalisation, bidi and
 control characters, URL syntax, `%`/`_` literals, Unicode names, query parsing); the generated
 parameter, response and error schema of both operations; 58 positive/negative schema fixtures
-cross-checked against the serde types; a test-only reference projection (35 suggestion cases and 19
+cross-checked against the serde types; a test-only reference projection (37 suggestion cases and 21
 resolve cases: ordering, de-duplication, the 5 item cut, mute/block exclusion, 409 for an ambiguous acct,
-verified mappings only, successful `actor_url` accepted by the #23 validator); both routes answering 501
+verified mappings only, the returned acct is the verified one (not the stored display acct), successful `actor_url` accepted by the #23 validator); both routes answering 501
 for any input and credentials; and a check that no database, HTTP client or background dependency was
 added. `tests/openapi.rs` keeps the route and schema snapshot and the checked-in schema equals the
 generated one.

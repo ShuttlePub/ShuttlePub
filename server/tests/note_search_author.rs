@@ -1043,6 +1043,14 @@ impl World {
             code: ErrorCode::InvalidRequest,
             field: v[0].field.clone(),
         })?;
+        // The returned acct is the one the lookup was verified on (the confirmed local
+        // username on this server's host, or the verified mapping), never the stored
+        // display acct of the author.
+        let basis_acct = format!(
+            "{}@{}",
+            acct.username,
+            acct.host.as_deref().unwrap_or(&self.local_host)
+        );
         let candidates: BTreeSet<&str> = match &acct.host {
             None => self.local_candidates(&acct),
             Some(host) if *host == self.local_host => self.local_candidates(&acct),
@@ -1072,7 +1080,10 @@ impl World {
             (Some(url), None) => self
                 .in_target_set()
                 .find(|a| a.actor_url == url)
-                .map(to_search_author)
+                .map(|a| SearchAuthor {
+                    acct: basis_acct.clone(),
+                    ..to_search_author(a)
+                })
                 .ok_or_else(|| failure(ErrorCode::NotFound)),
         }
     }
@@ -1212,6 +1223,12 @@ fn reference_projection_satisfies_every_resolve_case() -> TestResult {
                     Some(author.actor_url.0.as_str()),
                     expect["ok"].as_str(),
                     "{}",
+                    case["name"]
+                );
+                assert_eq!(
+                    Some(author.acct.as_str()),
+                    expect["acct"].as_str(),
+                    "{}: the returned acct is the verified one",
                     case["name"]
                 );
                 let response = ResolveAuthorResponse {
