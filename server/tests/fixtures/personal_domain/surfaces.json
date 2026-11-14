@@ -124,33 +124,6 @@
         ],
         "page": {}
       },
-      "search": {
-        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
-        "items": [
-          {
-            "kind": "post",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000001",
-              "content": "SAFE unrelated quoter post"
-            }
-          },
-          {
-            "kind": "reply",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000005",
-              "content": "SAFE exact match excludes subdomain"
-            }
-          },
-          {
-            "kind": "post",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000006",
-              "content": "SAFE canonical host wins"
-            }
-          }
-        ],
-        "page": {}
-      },
       "notifications": {
         "profile_id": "V1StGXR8_Z5jdHi6B-myT",
         "items": [
@@ -292,66 +265,6 @@
     ],
     "expected": {
       "timeline": {
-        "profile_id": "independent_profile",
-        "items": [
-          {
-            "kind": "post",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000001",
-              "content": "SAFE unrelated quoter post"
-            }
-          },
-          {
-            "kind": "post",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000002",
-              "content": "SECRET_BODY"
-            }
-          },
-          {
-            "kind": "quote",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000003",
-              "content": "SECRET_QUOTER_COMMENT"
-            },
-            "quoted_note": {
-              "note_id": "00000000-0000-4000-8000-000000000002",
-              "content": "SECRET_BODY"
-            }
-          },
-          {
-            "kind": "repost",
-            "note_id": "00000000-0000-4000-8000-000000000004",
-            "reposted_note": {
-              "note_id": "00000000-0000-4000-8000-000000000002",
-              "content": "SECRET_BODY"
-            }
-          },
-          {
-            "kind": "reply",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000005",
-              "content": "SAFE exact match excludes subdomain"
-            }
-          },
-          {
-            "kind": "post",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000006",
-              "content": "SAFE canonical host wins"
-            }
-          },
-          {
-            "kind": "reply",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000007",
-              "content": "SECRET_REPLY"
-            }
-          }
-        ],
-        "page": {}
-      },
-      "search": {
         "profile_id": "independent_profile",
         "items": [
           {
@@ -627,33 +540,6 @@
         ],
         "page": {}
       },
-      "search": {
-        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
-        "items": [
-          {
-            "kind": "post",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000001",
-              "content": "SAFE unrelated quoter post"
-            }
-          },
-          {
-            "kind": "reply",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000005",
-              "content": "SAFE exact match excludes subdomain"
-            }
-          },
-          {
-            "kind": "post",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000006",
-              "content": "SAFE canonical host wins"
-            }
-          }
-        ],
-        "page": {}
-      },
       "notifications": {
         "profile_id": "V1StGXR8_Z5jdHi6B-myT",
         "items": [
@@ -795,66 +681,6 @@
     ],
     "expected": {
       "timeline": {
-        "profile_id": "independent_profile",
-        "items": [
-          {
-            "kind": "post",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000001",
-              "content": "SAFE unrelated quoter post"
-            }
-          },
-          {
-            "kind": "post",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000002",
-              "content": "SECRET_BODY"
-            }
-          },
-          {
-            "kind": "quote",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000003",
-              "content": "SECRET_QUOTER_COMMENT"
-            },
-            "quoted_note": {
-              "note_id": "00000000-0000-4000-8000-000000000002",
-              "content": "SECRET_BODY"
-            }
-          },
-          {
-            "kind": "repost",
-            "note_id": "00000000-0000-4000-8000-000000000004",
-            "reposted_note": {
-              "note_id": "00000000-0000-4000-8000-000000000002",
-              "content": "SECRET_BODY"
-            }
-          },
-          {
-            "kind": "reply",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000005",
-              "content": "SAFE exact match excludes subdomain"
-            }
-          },
-          {
-            "kind": "post",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000006",
-              "content": "SAFE canonical host wins"
-            }
-          },
-          {
-            "kind": "reply",
-            "note": {
-              "note_id": "00000000-0000-4000-8000-000000000007",
-              "content": "SECRET_REPLY"
-            }
-          }
-        ],
-        "page": {}
-      },
-      "search": {
         "profile_id": "independent_profile",
         "items": [
           {

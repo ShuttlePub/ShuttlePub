@@ -1,0 +1,831 @@
+[
+  {
+    "name": "search_response_post_text",
+    "schema": "NoteSearchResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "post",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "text",
+              "content": "hello"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    }
+  },
+  {
+    "name": "search_response_reply_text",
+    "schema": "NoteSearchResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "reply",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "text",
+              "content": "hello"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    }
+  },
+  {
+    "name": "search_response_quote_comment_text",
+    "schema": "NoteSearchResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "quote",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "text",
+              "content": "hello"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    }
+  },
+  {
+    "name": "search_response_cw_exposes_only_the_cw",
+    "schema": "NoteSearchResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "post",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "content_warning",
+              "content_warning": "spoiler"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    }
+  },
+  {
+    "name": "search_response_empty_page_with_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "next_cursor": "opaque",
+        "truncated": false
+      }
+    }
+  },
+  {
+    "name": "search_item_forbids_pure_repost_kind",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "repost",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "text",
+              "content": "hello"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_item_forbids_repost_wrapper_shape",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "repost",
+          "note_id": "00000000-0000-4000-8000-000000000001",
+          "reposted_note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "content": "x"
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_item_forbids_feed_item_note_shape",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "post",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "content": "x"
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_cw_body_forbids_body_text_alongside_cw",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "post",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "content_warning",
+              "content_warning": "spoiler",
+              "content": "SECRET_BODY"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_cw_body_requires_the_cw",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "post",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "content_warning",
+              "content": "SECRET_BODY"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_text_body_forbids_cw_field",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "post",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "text",
+              "content": "x",
+              "content_warning": "w"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_body_forbids_unknown_display",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "post",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "both",
+              "content": "x",
+              "content_warning": "w"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_note_forbids_quoted_note_content",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "quote",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "text",
+              "content": "hello"
+            },
+            "quoted_note": {
+              "note_id": "00000000-0000-4000-8000-000000000001",
+              "content": "SECRET_QUOTED"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_note_forbids_quoted_note_id",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "quote",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "text",
+              "content": "hello"
+            },
+            "quoted_note_id": "00000000-0000-4000-8000-000000000001"
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_note_requires_created_at",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "post",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "body": {
+              "display": "text",
+              "content": "hello"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_note_created_at_must_be_date_time",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "post",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "yesterday",
+            "body": {
+              "display": "text",
+              "content": "hello"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": false
+  },
+  {
+    "name": "search_note_author_must_not_be_an_acct",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "post",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "@alice@remote.example",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "text",
+              "content": "hello"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": false
+  },
+  {
+    "name": "search_note_author_must_be_https",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "post",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "http://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "text",
+              "content": "hello"
+            }
+          }
+        }
+      ],
+      "page": {
+        "truncated": false
+      }
+    },
+    "serde_rejects": false
+  },
+  {
+    "name": "search_response_forbids_total",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": false
+      },
+      "total": 0
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_response_forbids_hidden_count",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": false
+      },
+      "hidden_count": 2
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_response_forbids_suppression_note",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": false
+      },
+      "suppressed": true
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_forbids_hidden_extension",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "hidden": 1,
+        "truncated": false
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "error_search_timeout_503",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "search_timeout",
+      "message": "search exceeded its time limit; narrow with author"
+    }
+  },
+  {
+    "name": "error_invalid_cursor_400",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "invalid_request",
+      "message": "cursor does not match",
+      "details": [
+        {
+          "field": "cursor",
+          "message": "issued for another condition"
+        }
+      ]
+    }
+  },
+  {
+    "name": "error_unfetched_author_404",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "not_found",
+      "message": "author actor is not known",
+      "details": [
+        {
+          "field": "author",
+          "message": "not fetched"
+        }
+      ]
+    }
+  },
+  {
+    "name": "actor_url_accepts_https_actor_id",
+    "schema": "ActorUrl",
+    "valid": true,
+    "payload": "https://remote.example/users/alice"
+  },
+  {
+    "name": "actor_url_rejects_acct",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "@alice@remote.example"
+  },
+  {
+    "name": "actor_url_rejects_from_syntax",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "from:@alice"
+  },
+  {
+    "name": "actor_url_rejects_http",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "http://remote.example/users/alice"
+  },
+  {
+    "name": "actor_url_rejects_fragment",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://remote.example/users/alice#main-key"
+  },
+  {
+    "name": "actor_url_rejects_whitespace",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://remote.example/users/a lice"
+  },
+  {
+    "name": "actor_url_rejects_empty_host",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https:///users/alice"
+  },
+  {
+    "name": "search_page_truncated_partial_result_with_resume_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "kind": "post",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000001",
+            "author": "https://remote.example/users/alice",
+            "created_at": "2026-11-14T03:00:00Z",
+            "body": {
+              "display": "text",
+              "content": "hello"
+            }
+          }
+        }
+      ],
+      "page": {
+        "next_cursor": "opaque",
+        "truncated": true
+      }
+    }
+  },
+  {
+    "name": "search_page_truncated_with_no_items_is_allowed",
+    "schema": "NoteSearchResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "next_cursor": "opaque",
+        "truncated": true
+      }
+    }
+  },
+  {
+    "name": "search_page_requires_the_truncated_flag",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {}
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_truncated_must_be_boolean",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": "yes"
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_forbids_interrupted_count",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": true,
+        "interrupted_after": 3
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_truncated_requires_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": true
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_truncated_forbids_null_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": true,
+        "next_cursor": null
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_truncated_forbids_empty_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": true,
+        "next_cursor": ""
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_complete_forbids_null_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": false,
+        "next_cursor": null
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_complete_forbids_empty_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": false,
+        "next_cursor": ""
+      }
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "search_page_complete_may_omit_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": false
+      }
+    }
+  },
+  {
+    "name": "search_page_complete_with_next_cursor",
+    "schema": "NoteSearchResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "page": {
+        "truncated": false,
+        "next_cursor": "opaque"
+      }
+    }
+  },
+  {
+    "name": "actor_url_rejects_empty_authority_with_query",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://?alice"
+  },
+  {
+    "name": "actor_url_rejects_empty_host_with_port",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://:443/users/alice"
+  },
+  {
+    "name": "actor_url_rejects_userinfo",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://user@remote.example/users/alice"
+  },
+  {
+    "name": "actor_url_rejects_ip_literal_host",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://[::1]/users/alice"
+  },
+  {
+    "name": "actor_url_rejects_port_out_of_range",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://remote.example:99999/users/alice"
+  },
+  {
+    "name": "actor_url_rejects_forbidden_host_character",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://remote<example/users/alice"
+  },
+  {
+    "name": "actor_url_rejects_backslash",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://remote.example\\users\\alice"
+  },
+  {
+    "name": "actor_url_rejects_control_character",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://remote.example/users/alice\u0000"
+  },
+  {
+    "name": "actor_url_rejects_empty_after_scheme",
+    "schema": "ActorUrl",
+    "valid": false,
+    "payload": "https://"
+  },
+  {
+    "name": "actor_url_accepts_port",
+    "schema": "ActorUrl",
+    "valid": true,
+    "payload": "https://remote.example:8443/users/alice"
+  },
+  {
+    "name": "actor_url_accepts_uppercase_host_and_query",
+    "schema": "ActorUrl",
+    "valid": true,
+    "payload": "https://Remote.Example/users/alice?x=1"
+  },
+  {
+    "name": "actor_url_accepts_host_only",
+    "schema": "ActorUrl",
+    "valid": true,
+    "payload": "https://remote.example"
+  }
+]

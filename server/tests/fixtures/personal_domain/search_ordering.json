@@ -1,0 +1,86 @@
+{
+  "description": "created_at is an RFC 3339 date-time. Results are ordered by the INSTANT it denotes (fractional seconds and offsets compared as time values), then by note_id descending, never by the text of created_at. Sorting these strings as text gives a different order.",
+  "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+  "author": "https://remote.example/users/alice",
+  "notes": [
+    {
+      "viewable": true,
+      "deleted": false,
+      "note_id": "00000000-0000-4000-8000-000000000001",
+      "author": "https://remote.example/users/alice",
+      "kind": "post",
+      "created_at": "2026-11-14T03:00:00Z",
+      "content": "ordering one"
+    },
+    {
+      "viewable": true,
+      "deleted": false,
+      "note_id": "00000000-0000-4000-8000-000000000002",
+      "author": "https://remote.example/users/alice",
+      "kind": "post",
+      "created_at": "2026-11-14T12:00:00+09:00",
+      "content": "ordering two, the same instant as one"
+    },
+    {
+      "viewable": true,
+      "deleted": false,
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "author": "https://remote.example/users/alice",
+      "kind": "post",
+      "created_at": "2026-11-14T03:00:00.5Z",
+      "content": "ordering three"
+    },
+    {
+      "viewable": true,
+      "deleted": false,
+      "note_id": "00000000-0000-4000-8000-000000000004",
+      "author": "https://remote.example/users/alice",
+      "kind": "post",
+      "created_at": "2026-11-14T03:00:00.25Z",
+      "content": "ordering four"
+    },
+    {
+      "viewable": true,
+      "deleted": false,
+      "note_id": "00000000-0000-4000-8000-000000000005",
+      "author": "https://remote.example/users/alice",
+      "kind": "post",
+      "created_at": "2026-11-14T02:59:59.999999999Z",
+      "content": "ordering five"
+    },
+    {
+      "viewable": true,
+      "deleted": false,
+      "note_id": "00000000-0000-4000-8000-000000000006",
+      "author": "https://remote.example/users/alice",
+      "kind": "post",
+      "created_at": "2026-11-13T22:30:00-05:00",
+      "content": "ordering six, the newest instant"
+    }
+  ],
+  "expected_order": [
+    "00000000-0000-4000-8000-000000000006",
+    "00000000-0000-4000-8000-000000000003",
+    "00000000-0000-4000-8000-000000000004",
+    "00000000-0000-4000-8000-000000000002",
+    "00000000-0000-4000-8000-000000000001",
+    "00000000-0000-4000-8000-000000000005"
+  ],
+  "paging": {
+    "limit": 2,
+    "pages": [
+      [
+        "00000000-0000-4000-8000-000000000006",
+        "00000000-0000-4000-8000-000000000003"
+      ],
+      [
+        "00000000-0000-4000-8000-000000000004",
+        "00000000-0000-4000-8000-000000000002"
+      ],
+      [
+        "00000000-0000-4000-8000-000000000001",
+        "00000000-0000-4000-8000-000000000005"
+      ]
+    ]
+  }
+}

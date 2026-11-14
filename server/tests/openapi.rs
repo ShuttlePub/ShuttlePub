@@ -193,6 +193,7 @@ fn route_and_schema_snapshot() -> TestResult {
     assert_eq!(
         schemas,
         [
+            "ActorUrl",
             "ApiStatus",
             "BlockingDomainControlRef",
             "ContentNotification",
@@ -230,6 +231,8 @@ fn route_and_schema_snapshot() -> TestResult {
             "LikeOperation",
             "NoteContent",
             "NotePresentation",
+            "NoteSearchItem",
+            "NoteSearchPageInfo",
             "NoteSearchResponse",
             "OutboundDomainBlock",
             "PageInfo",
@@ -249,6 +252,8 @@ fn route_and_schema_snapshot() -> TestResult {
             "RepostDomainBlock",
             "RepostOperation",
             "RevisionConflictBody",
+            "SearchNoteBody",
+            "SearchedNote",
             "TimelineResponse",
             "UpdateQuickReactionSettings",
         ]
@@ -265,7 +270,8 @@ fn route_and_schema_snapshot() -> TestResult {
             "emoji_unavailable",
             "emoji_usage_not_allowed",
             "internal",
-            "not_implemented"
+            "not_implemented",
+            "search_timeout"
         ])
     );
     assert_eq!(

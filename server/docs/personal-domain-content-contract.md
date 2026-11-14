@@ -15,7 +15,7 @@ All paths below begin with `/api/v1/profiles/{profile_nanoid}`; all use
 | Method | Suffix | operationId | Main schemas |
 | --- | --- | --- | --- |
 | GET | /timeline | getPersonalTimeline | TimelineResponse, FeedItem |
-| GET | /notes/search | searchPersonalNotes | NoteSearchResponse, FeedItem |
+| GET | /notes/search | searchPersonalNotes | NoteSearchResponse, NoteSearchItem (see "Note search") |
 | GET | /notifications | getPersonalContentNotifications | ContentNotificationsResponse |
 | GET | /notes/{note_id} | getPersonalNote | DirectNoteResponse, NotePresentation |
 | POST | /notes/{note_id}/reveal | revealPersonalNote | DirectNoteResponse |
@@ -115,6 +115,73 @@ its text and D8P semantics start at 1; the read-only S8 observation uses minimum
   permissions. Blocked direct authors remain locked after reveal; mute adds no
   operation restriction. An explicit Emumet unblock must precede a new operation.
 
+## Note search (D04, issue #22)
+
+`searchPersonalNotes` was extended in place (same path and operationId; there is no second
+search contract). Its result type was **replaced**: `NoteSearchResponse.items` is now
+`NoteSearchItem`, not `FeedItem`. This is a breaking change for any consumer pinned to the S8
+generated schema (for example frontends); consuming it requires a new explicit producer SHA pin.
+Everything else in S8 (timeline, notifications, FeedItem, direct notes) is unchanged. Contract only:
+the route still answers 501.
+
+- **Input.** `author` (optional, one canonical https actor ID URL, schema `ActorUrl`), `q`
+  (optional, 1..=256 characters), `limit` (1..=50, default 20), `cursor`. Neither `author` nor
+  `q` is `400 invalid_request`, as are an empty or over-long `q`, an out-of-range `limit`, an
+  `author` that is not an actor ID URL and a bad cursor (`details.field` names the parameter).
+  Author-only, keyword-only (no author, **also in the standard engine-less configuration**:
+  database substring match bounded by these limits and the time limit) and both are provided.
+  A search engine, when present, must not change what a result means.
+  An `author` is accepted only when the URL parser reads it as an absolute `https` URL with a
+  non-empty domain host (optional valid port, no userinfo, no IP-literal host, no fragment, no
+  backslash, whitespace or control character, at most 2048 characters); `https://?alice`,
+  `https://:443/users/alice` and `https:///users/alice` are therefore `400` and never reach the 404
+  actor lookup. The `ActorUrl` `pattern` is the syntactic prefilter of this rule; the parser may
+  reject more (for example invalid IDNA), always as `400`.
+- **Acct resolution is not part of this contract.** The API never accepts an acct or the UI's
+  `from:@user` syntax (it is a 400). Turning `from:@user` into an actor ID URL is the BFF/UI's
+  job. No existing API resolves a remote acct to an actor ID (Emumet's WebFinger only describes its
+  own local accounts), so until a separate resolver contract exists the BFF/UI resolves it itself,
+  and an acct it cannot resolve is **not searched**: the UI reports the error and never calls this
+  route with a guess.
+- **Meaning.** `q` is a literal substring of the note's body **and** its content warning; the
+  text of a quoted or replied-to note is not searched. `%`, `_` and backslash are plain characters.
+  Results are newest first (`created_at` descending compared as the time instant it denotes, so fractional seconds and offsets are never ordered as text, then `note_id` descending) and only notes the
+  Profile may view. **Undecided, deliberately not fixed here:** case-insensitive matching and whether
+  whitespace-separated words are ANDed.
+- **Result type.** `NoteSearchItem` is `post`, `reply` or `quote` (a quote with a comment) only; a
+  pure repost cannot be expressed. A note carries `note_id`, `author` (actor ID URL), `created_at` and
+  a closed `body`: `{display: text, content}` or `{display: content_warning, content_warning}`. A
+  content-warned note never carries its body, even when only the body matched.
+- **Suppression.** S8's mute/block suppression applies to search with no trace: notes from a
+  controlled domain and quotes whose direct target is in one are omitted whole. An `author` in a
+  controlled domain is an ordinary empty `200`; `404 not_found` (`details.field = author`) is only for an
+  actor this server has not fetched. Validation errors (400) are decided before the 404.
+- **Time limit.** Reaching the response time limit **with resumable progress** returns a partial
+  `200` with `page.truncated = true`: the items are an exact prefix of the full result (no gaps,
+  possibly none) and `next_cursor` is always present, resuming after the last scanned position
+  with a fresh time budget. `truncated = true` therefore guarantees a present, non-empty string
+  `next_cursor` (the schema is a `oneOf` on the `truncated` literal and the type rejects a missing,
+  null or empty cursor). The UI shows "interrupted here" at the end of the found items and **stops
+  automatic (scroll-triggered) loading**; the cursor stays valid, so a later explicit action may resume
+  from it (note-search-ui ui-spec). Only a timeout
+  **without any resumable progress** is `503 search_timeout`. Page metadata is closed: no total,
+  hidden count or suppression note.
+- **Cursor.** Opaque. Internally a `(created_at, note_id)` keyset position bound to the Profile,
+  `author` and `q` (not to `limit`, not to the E8 revision). Another condition or a malformed value
+  is `400` with `details.field = cursor`. `next_cursor` is present when a further match is known or
+  the page is truncated; the following page may still be empty.
+- **Changes between pages.** There is no snapshot: each page is evaluated against the latest state.
+  An edit never changes `created_at` or the order (a note that stops matching no longer appears on
+  later pages, an older note that starts matching does); a deletion, lost view right or newly added
+  mute/block takes effect on the next page; nothing already returned is retracted; no note is
+  returned twice.
+
+Evidence: `tests/note_search.rs` with `fixtures/personal_domain/search.json` (27 cases and 8 paging
+scenarios against a test-only reference projection), `search_schema_cases.json` (closed shapes, no
+repost, CW without body, actor URL pattern, truncated page) and checks of the generated parameter
+schemas. S8's `surfaces.json` now verifies only timeline and notifications; its old search
+expectation (FeedItem) was replaced by the new fixtures.
+
 ## Operation refusals and S3 compatibility
 
 Each action has a separate detail type with a singleton operation discriminator.
@@ -123,7 +190,8 @@ EmojiRef as S3. Both inbound and outbound are refused for a matching block even
 when D13 permits the action. Existing accepted likes/emoji stay counted; refused
 new operations do not add counts. There is no automatic deletion/Undo/AP Block.
 
-`ErrorBody` keeps its existing required `code, message` and optional `details`.
+`ErrorBody` keeps its existing required `code, message` and optional `details`; the D04 unit adds the
+code `search_timeout` (503).
 It gains only optional `domain_block: OutboundDomainBlock`, absent on all old
 errors and every 501. A block refusal uses existing `forbidden` (403), not a
 parallel error format. The S3 PUT operationId, request schema, 200/4xx response
