@@ -148,8 +148,7 @@
               "type": "custom",
               "id": "goneblob@remote.example"
             },
-            "availability": "unavailable",
-            "unavailable_reason": "deleted",
+            "availability": "available",
             "shortcode": "goneblob",
             "origin": "remote.example",
             "image_state": "missing",
@@ -376,6 +375,30 @@
             "origin": "remote.example",
             "image_state": "missing",
             "usage": "existing_reaction_only"
+          }
+        }
+      ]
+    },
+    "external_deleted_but_unavailable": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "goneblob@remote.example"
+          },
+          "count": 2,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "goneblob@remote.example"
+            },
+            "availability": "unavailable",
+            "shortcode": "goneblob",
+            "origin": "remote.example",
+            "image_state": "missing",
+            "usage": "existing_reaction_only",
+            "unavailable_reason": "deleted"
           }
         }
       ]

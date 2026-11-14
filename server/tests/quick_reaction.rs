@@ -346,7 +346,24 @@ fn emoji_view_consistency_rules() -> TestResult {
         "unavailable needs a reason"
     );
     gone.unavailable_reason = Some(EmojiUnavailableReason::Deleted);
+    assert!(
+        gone.check_consistency().is_err(),
+        "deletion at the origin is image_state missing, not unavailable/deleted"
+    );
+    gone.unavailable_reason = Some(EmojiUnavailableReason::Disabled);
     gone.check_consistency()?;
+    // a deleted custom emoji of this server stays unavailable/deleted
+    let local_gone = EmojiView {
+        emoji: custom("blobcat"),
+        availability: EmojiAvailability::Unavailable,
+        unavailable_reason: Some(EmojiUnavailableReason::Deleted),
+        shortcode: Some("blobcat".into()),
+        image_url: None,
+        origin: None,
+        image_state: Some(EmojiImageState::Missing),
+        usage: Some(EmojiUsage::Anywhere),
+    };
+    local_gone.check_consistency()?;
     let mut unicode_with_origin = EmojiView {
         emoji: unicode("👍"),
         availability: EmojiAvailability::Available,
@@ -451,6 +468,7 @@ fn reaction_put_documents_every_outcome_of_the_check_order() -> TestResult {
         "emoji_usage_not_allowed",
         "409",
         "no-op",
+        "deleted at its origin",
     ] {
         assert!(
             description.contains(needle),
@@ -987,6 +1005,19 @@ impl Model {
         }
     }
 
+    /// The origin deleted an external emoji (or its cached image expired):
+    /// the image is gone but the emoji stays available (d09-q07).
+    fn origin_deleted(&mut self, id: &str) -> Result<(), String> {
+        let entry = self
+            .emoji
+            .get_mut(id)
+            .filter(|e| e.origin.is_some())
+            .ok_or_else(|| format!("{id} is not an external emoji"))?;
+        entry.image_url = None;
+        entry.image_state = Some(EmojiImageState::Missing);
+        Ok(())
+    }
+
     fn mutate(
         &mut self,
         id: &str,
@@ -1016,10 +1047,42 @@ impl Model {
 }
 
 #[derive(Deserialize)]
+struct OriginDeleted {
+    id: String,
+}
+
+#[derive(Deserialize)]
 struct Mutation {
     id: String,
     availability: EmojiAvailability,
     reason: Option<EmojiUnavailableReason>,
+}
+
+#[test]
+fn scenarios_cover_external_emoji_deleted_at_their_origin() -> TestResult {
+    for name in [
+        "remote_reaction_deleted_at_origin_reuses_the_chip",
+        "remote_reaction_deleted_at_origin_without_chip_is_refused",
+        "remote_reaction_origin_deletes_the_selected_emoji",
+    ] {
+        let path = fixture_dir().join("scenarios").join(format!("{name}.json"));
+        let scenario: Value = serde_json::from_str(&std::fs::read_to_string(&path)?)?;
+        assert_eq!(scenario["name"], name);
+    }
+    let reuse = read_fixture("scenarios/remote_reaction_deleted_at_origin_reuses_the_chip.json")?;
+    let selected = &reuse["steps"][1]["expect"];
+    assert_eq!(selected["status"], 200, "reusable from the existing chip");
+    let view = &selected["body"]["emoji"];
+    assert_eq!(view["availability"], "available");
+    assert_eq!(view["image_state"], "missing");
+    assert!(view["unavailable_reason"].is_null() && view["image_url"].is_null());
+    let refused =
+        read_fixture("scenarios/remote_reaction_deleted_at_origin_without_chip_is_refused.json")?;
+    assert_eq!(
+        refused["steps"][0]["expect"]["body"]["code"],
+        "emoji_usage_not_allowed"
+    );
+    Ok(())
 }
 
 #[test]
@@ -1044,6 +1107,11 @@ fn scenarios_follow_the_documented_semantics_and_the_schema() -> TestResult {
             if let Some(mutation) = step.get("mutate_emoji") {
                 let m: Mutation = serde_json::from_value(mutation.clone())?;
                 model.mutate(&m.id, m.availability, m.reason);
+                continue;
+            }
+            if let Some(deleted) = step.get("mutate_emoji_origin_deleted") {
+                let d: OriginDeleted = serde_json::from_value(deleted.clone())?;
+                model.origin_deleted(&d.id)?;
                 continue;
             }
             let operation = step["operation"].as_str().ok_or("operation")?;

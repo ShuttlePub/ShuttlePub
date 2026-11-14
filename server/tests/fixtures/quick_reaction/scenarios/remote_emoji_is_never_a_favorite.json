@@ -1,6 +1,6 @@
 {
   "name": "remote_emoji_is_never_a_favorite",
-  "description": "An external emoji is refused as a favorite (422 emoji_usage_not_allowed at its /favorites/{index}); settings never list it; a same-server custom emoji is accepted.",
+  "description": "An external emoji is refused as a favorite (422 emoji_usage_not_allowed at its /favorites/{index}); settings never list it; a same-server custom emoji is accepted. An external emoji deleted at its origin is refused the same way (usage, not availability).",
   "setup": {
     "emoji": {
       "blobcat": {
@@ -35,8 +35,7 @@
       },
       "goneblob@remote.example": {
         "shortcode": "goneblob",
-        "availability": "unavailable",
-        "reason": "deleted",
+        "availability": "available",
         "origin": "remote.example",
         "image_state": "missing",
         "usage": "existing_reaction_only"
@@ -67,6 +66,35 @@
           {
             "type": "custom",
             "id": "partycat@remote.example"
+          }
+        ]
+      },
+      "expect": {
+        "status": 422,
+        "body": {
+          "code": "emoji_usage_not_allowed",
+          "message": "an external emoji can only be used from an existing reaction",
+          "details": [
+            {
+              "field": "/favorites/1",
+              "message": "an external emoji can only be used from an existing reaction"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 0,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "👍"
+          },
+          {
+            "type": "custom",
+            "id": "goneblob@remote.example"
           }
         ]
       },

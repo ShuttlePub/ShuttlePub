@@ -1035,7 +1035,30 @@
     "schema_valid": true
   },
   {
-    "name": "reaction response: deleted external emoji is unavailable and its image missing",
+    "name": "reaction response: external emoji deleted at its origin is available and its image missing",
+    "target": {
+      "operation": "getNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+      "emoji": {
+        "emoji": {
+          "type": "custom",
+          "id": "partycat@remote.example"
+        },
+        "availability": "available",
+        "shortcode": "partycat",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+      }
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction response: external emoji disabled by this server is unavailable",
     "target": {
       "operation": "getNoteReaction",
       "kind": "response",
@@ -1049,11 +1072,12 @@
           "id": "partycat@remote.example"
         },
         "availability": "unavailable",
+        "unavailable_reason": "disabled",
         "shortcode": "partycat",
+        "image_url": "https://remote.example/emoji/partycat.png",
         "origin": "remote.example",
-        "image_state": "missing",
-        "usage": "existing_reaction_only",
-        "unavailable_reason": "deleted"
+        "image_state": "present",
+        "usage": "existing_reaction_only"
       }
     },
     "schema_valid": true

@@ -208,25 +208,41 @@ fields and an optional `view` on the S8 `EmojiReactionCount` chip
   id and `origin`).
 - `image_state` (`present` | `missing`), independent of `availability`: a
   missing image is shown as `:shortcode:` and an `available` emoji can still be
-  selected (d09-q02); after the origin deleted it and the local copy expired
-  (d09-q03, period not part of the contract) it is `unavailable` + `missing`.
+  selected (d09-q02). It is the only place where "the image is gone" is
+  expressed: after the origin deleted the emoji and the local copy expired
+  (d09-q03, period not part of the contract) it is `available` + `missing`
+  (no `unavailable_reason`), the same look as a failed fetch, and it can be
+  pressed from an existing chip (UI spec, d09-q05; decision d09-q07 changed the
+  earlier `unavailable` + `deleted` form). Sendability is a separate axis:
+  `availability` (an external emoji is `unavailable` only when this server
+  disabled it, reason `disabled`, never `deleted`) plus the usage rules below.
+  `EmojiView::check_consistency` rejects an external emoji with
+  `unavailable_reason: deleted`. Local custom emoji are unchanged: deleted or
+  disabled is `unavailable`.
 - `usage` (`existing_reaction_only` | `anywhere`): an external emoji is
   `existing_reaction_only` (d09-q01): never in the picker, recents or
   favourites. Settings `PUT` with one is `422 emoji_usage_not_allowed` at
   `/favorites/{index}` and no settings answer lists one.
 - Reaction `PUT` check order, first match answers: availability (`422
-  emoji_unavailable`) → same as the current selection (`200` no-op) → external
-  emoji without a chip of it on the Note (`422 emoji_usage_not_allowed`) →
+  emoji_unavailable`: unavailable local custom emoji and external emoji this
+  server disabled; **not** an external emoji deleted at its origin) → same as the
+  current selection (`200` no-op) → external emoji without a chip of it on the
+  Note (`422 emoji_usage_not_allowed`, including one deleted at its origin) →
   external emoji while the Profile reacted with another emoji (`409 conflict`,
-  no direct replacement, current reaction stays) → select (`200`). The chip and
-  conflict rules only apply to `existing_reaction_only` emoji; Unicode and
+  no direct replacement, current reaction stays) → select (`200`). So an
+  external emoji deleted at its origin whose chip is still on the Note is
+  selected with `200` (the answer shows `image_state: missing` and the
+  `shortcode` for `:name:`), repeating it is the `200` no-op, and without a
+  chip it is `422 emoji_usage_not_allowed` (not `emoji_unavailable`). The chip
+  and conflict rules only apply to `existing_reaction_only` emoji; Unicode and
   same-server custom emoji keep the replacement behaviour. `DELETE` is
   unchanged. D03 q09/q10 add nothing to any response, so no field exists for them.
 - `ErrorCode` gained `emoji_usage_not_allowed` (422); `putNoteReaction` now
   documents a `409` (`ErrorBody`).
 
 Tests: scenarios `remote_*.json` (piggy-back lifecycle, missing chip, 409,
-local replacement, availability first, missing image, never a favourite) are
+local replacement, availability first with a disabled external emoji, missing
+image, deleted-at-origin emoji reusable from its chip, never a favourite) are
 replayed by the same reference model; `schema_cases.json` gained D09 response
 cases; `tests/fixtures/personal_domain/remote_emoji_chips.json` checks the
 per-chip origin guarantee (`EmojiReactionCount::check_consistency`).
