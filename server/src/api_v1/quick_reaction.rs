@@ -299,7 +299,8 @@ impl EmojiView {
     ///
     /// Unicode emoji carry no custom emoji data; an `unavailable_reason` goes
     /// with `unavailable` only; `image_state` and `image_url` agree; an external
-    /// emoji (with `origin`) is `existing_reaction_only`.
+    /// emoji (with `origin`) is `existing_reaction_only`; a custom emoji whose image
+    /// is `missing` keeps a non-empty `shortcode` to show as `:name:`.
     pub fn check_consistency(&self) -> Result<(), String> {
         if matches!(self.availability, EmojiAvailability::Available)
             == self.unavailable_reason.is_some()
@@ -323,6 +324,11 @@ impl EmojiView {
             }
             Some(EmojiImageState::Missing) if self.image_url.is_some() => {
                 return Err("image_state missing must not carry image_url".into());
+            }
+            Some(EmojiImageState::Missing)
+                if self.shortcode.as_deref().is_none_or(str::is_empty) =>
+            {
+                return Err("image_state missing needs a shortcode to show as :name:".into());
             }
             _ => {}
         }
@@ -424,7 +430,9 @@ pub struct ReactionState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PutReaction {
-    /// The emoji to select; replaces any previous selection.
+    /// The emoji to select; replaces any previous selection, except that an
+    /// external emoji (`usage: existing_reaction_only`) never replaces: it is
+    /// refused with `409` while another reaction is selected.
     pub emoji: EmojiRef,
 }
 

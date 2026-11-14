@@ -357,6 +357,28 @@
           }
         }
       ]
+    },
+    "image_missing_without_shortcode": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "ghostcat@remote.example"
+          },
+          "count": 1,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "ghostcat@remote.example"
+            },
+            "availability": "available",
+            "origin": "remote.example",
+            "image_state": "missing",
+            "usage": "existing_reaction_only"
+          }
+        }
+      ]
     }
   }
 }

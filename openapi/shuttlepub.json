@@ -1085,7 +1085,7 @@
         "properties": {
           "emoji": {
             "$ref": "#/components/schemas/EmojiRef",
-            "description": "The emoji to select; replaces any previous selection."
+            "description": "The emoji to select; replaces any previous selection, except that an\nexternal emoji (`usage: existing_reaction_only`) never replaces: it is\nrefused with `409` while another reaction is selected."
           }
         },
         "required": [

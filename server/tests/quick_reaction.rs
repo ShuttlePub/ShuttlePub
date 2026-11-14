@@ -321,6 +321,19 @@ fn emoji_view_consistency_rules() -> TestResult {
     let mut missing_with_url = external_view();
     missing_with_url.image_state = Some(EmojiImageState::Missing);
     assert!(missing_with_url.check_consistency().is_err());
+    let mut nameless = external_view();
+    nameless.image_state = Some(EmojiImageState::Missing);
+    nameless.image_url = None;
+    nameless.shortcode = None;
+    assert!(
+        nameless.check_consistency().is_err(),
+        "missing image needs a shortcode"
+    );
+    nameless.shortcode = Some(String::new());
+    assert!(
+        nameless.check_consistency().is_err(),
+        "shortcode must not be empty"
+    );
     // image state is independent of availability
     let mut missing = external_view();
     missing.image_state = Some(EmojiImageState::Missing);
