@@ -121,7 +121,7 @@
         "type": "string"
       },
       "DirectItem": {
-        "description": "Explicitly revealed item. Boost-wrapper direct reveal is undecided and not\npart of S8 (the original note URL uses ordinary single-note reveal).\nOperations concern its own author/target, NOT the\ndomain of an embedded quote. The unblocked quoter remains actionable.",
+        "description": "Explicitly revealed item. Boost-wrapper direct reveal is undecided and not\npart of S8 (the original note URL uses ordinary single-note reveal).\nA revealed quote carries its directly quoted target too (one reveal shows\nthe whole quote). Operations concern the revealed note's own author, NOT the\ndomain of its embedded quote target. The unblocked quoter remains actionable.",
         "oneOf": [
           {
             "additionalProperties": false,
@@ -188,7 +188,7 @@
       },
       "DirectNoteResponse": {
         "additionalProperties": false,
-        "description": "Profile scoped direct view. Initial GET is hidden for a controlled domain.\nPOST reveal is explicit and applies only to this note in the current page.\nNever persist or sync reveal, never change E8 revision. Hide discards the\npage-local result; reload/revisit uses GET and hides again. Reveal never\nchanges another note, embedded content, block, CW/sensitive or viewing rights.",
+        "description": "Profile scoped direct view. Initial GET is hidden for a controlled domain.\nPOST reveal is explicit and applies only to this note and, for a quote, its\ndirectly quoted target, in the current page. Never persist or sync reveal,\nnever change E8 revision. Hide discards the page-local result; reload/revisit\nuses GET and hides again. Reveal never changes another note, a nested quote,\nblock, CW/sensitive or viewing rights.",
         "properties": {
           "presentation": {
             "$ref": "#/components/schemas/NotePresentation"
@@ -287,7 +287,7 @@
         ]
       },
       "EmbeddedNotePresentation": {
-        "description": "One embedded target only. Revealing an outer quote never reveals\nthis target. No decision about attribution through nested quotes is made.",
+        "description": "The directly quoted target of a revealed quote, and only that one target.\nIt has NO hidden variant: a domain-controlled quoted target is hidden together\nwith its quote (see [`HiddenCause::Quote`]), and the single explicit reveal of\nthe quote resolves both. After reveal the target is `visible` unless an\nindependent gate (CW, sensitive, deletion, viewing rights) keeps it\n`restricted`, content-free. No decision about attribution through nested\nquotes (the target quoting yet another note) is made.",
         "oneOf": [
           {
             "additionalProperties": false,
@@ -304,36 +304,6 @@
             },
             "required": [
               "note",
-              "state"
-            ],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "domain": {
-                "$ref": "#/components/schemas/ControlDomain"
-              },
-              "mode": {
-                "$ref": "#/components/schemas/DomainControlMode"
-              },
-              "revision": {
-                "description": "E8 revision, starts at 1, monotonically increases, never reused.",
-                "format": "int64",
-                "minimum": 1,
-                "type": "integer"
-              },
-              "state": {
-                "enum": [
-                  "hidden"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "mode",
-              "domain",
-              "revision",
               "state"
             ],
             "type": "object"
@@ -740,6 +710,14 @@
         ],
         "type": "object"
       },
+      "HiddenCause": {
+        "description": "Why a note is hidden on direct open (D08 ui-spec 3-1 / 3-4).\n\n- `direct`: the note's own author is in the controlled domain. The UI says\n  the note is from a muted/blocked domain.\n- `quote`: the note's own author is NOT controlled, but the note directly\n  quotes a note of a controlled domain. The UI says the note quotes a\n  muted/blocked domain's post and names that domain (the quoted source).\n\nWhen both apply the cause is `direct` and the domain is the note's own\nauthor's; the single reveal resolves both. A quote whose directly quoted\ntarget is deleted or not viewable by the caller is never `quote`: that would\ndisclose the domain of a note the caller cannot see, so the target is\n`restricted` instead. Only the immediate quote target is considered; nested\nquotes are unspecified.",
+        "enum": [
+          "direct",
+          "quote"
+        ],
+        "type": "string"
+      },
       "InboundEmojiReactionRejection": {
         "additionalProperties": false,
         "description": "ShuttlePub INTERNAL inbound emoji_reaction acceptance result contract, NOT a wire\ninbox/API or an ActivityPub HTTP status. Refuse NEW actions from this domain\nto this Profile, even if D13 permits the action. No rejection on mute alone.",
@@ -868,11 +846,14 @@
         "type": "object"
       },
       "NotePresentation": {
-        "description": "Direct URL presentation. Hidden contains ONLY state, E8 mode, domain and\nrevision: no body, author details, media, CW text, mention or embedded data.\nRestricted remains content-free even after an explicit single-note reveal.",
+        "description": "Direct URL presentation. Hidden contains ONLY state, cause, E8 mode, domain\nand revision: no body, author details, media, CW text, mention, note id or\nembedded/quoted data (not even the quoted author). `mode`, `domain` and\n`revision` are those of the E8 control that caused the hiding: the note's own\nauthor domain for `direct`, the quoted source's domain for `quote`.\nRestricted remains content-free even after an explicit single-note reveal.",
         "oneOf": [
           {
             "additionalProperties": false,
             "properties": {
+              "cause": {
+                "$ref": "#/components/schemas/HiddenCause"
+              },
               "domain": {
                 "$ref": "#/components/schemas/ControlDomain"
               },
@@ -893,6 +874,7 @@
               }
             },
             "required": [
+              "cause",
               "mode",
               "domain",
               "revision",
@@ -1537,7 +1519,7 @@
             "bearer_auth": []
           }
         ],
-        "summary": "Direct URL: initially hidden, including entire third-party quotes.",
+        "summary": "Direct URL: initially hidden, including entire third-party quotes of a\ncontrolled domain's note (`cause: quote`, naming the quoted source's domain).",
         "tags": [
           "personal-domain-content"
         ]
@@ -2276,7 +2258,7 @@
             "bearer_auth": []
           }
         ],
-        "summary": "Explicit one-note, current-page-only reveal. Never persist, unblock or bypass independent gates.",
+        "summary": "Explicit one-note, current-page-only reveal. A quote is revealed together with\nits directly quoted target. Never persist, unblock or bypass independent gates.",
         "tags": [
           "personal-domain-content"
         ]

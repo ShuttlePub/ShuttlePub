@@ -72,19 +72,45 @@ its text and D8P semantics start at 1; the read-only S8 observation uses minimum
 - FeedItem has no hidden/placeholder variant. Closed response/cursor metadata
   has no suppression count or annotation. Suppressed notifications do not
   contribute to unread_count. Visible counts are not adjusted or annotated.
-- Direct hidden is exactly `state, mode, domain, revision` inside a Profile
-  envelope. No note ID, body, author detail, media, attachment, CW text, mention,
-  quote data or arbitrary extra property is permitted. Schema **and** serde
-  reject unknown hidden fields. OpenAPI enum closure fixups run after routes!
-  contributes all schemas, so the generated contract really enforces this.
+- Direct hidden is exactly `state, cause, mode, domain, revision` inside a
+  Profile envelope. No note ID, body, author detail, media, attachment, CW text,
+  mention, quote data (not even the quoted author) or arbitrary extra property is
+  permitted. Schema **and** serde reject unknown hidden fields. OpenAPI enum
+  closure fixups run after routes! contributes all schemas, so the generated
+  contract really enforces this.
+- `cause` is the required, closed `HiddenCause` enum (D08 ui-spec 3-1 / 3-4):
+  - `direct`: the note's own author is in the controlled domain. `mode`,
+    `domain`, `revision` are that author domain's E8 control.
+  - `quote`: the note's own author is not controlled, but the note directly
+    quotes a note of a controlled domain. `mode`, `domain`, `revision` are the
+    **quoted source's** E8 control, so the UI can say "(blocked/muted) domain's
+    post is quoted / source: <domain>".
+  - If both apply the cause is `direct` and the domain is the note's own author
+    domain; the single reveal resolves both. No second domain is returned.
+  - A directly quoted target that is deleted or not viewable by the caller never
+    produces `quote`: that would disclose the domain of a note the caller cannot
+    see. The quote is then visible and the target is `restricted` (content-free).
+  - Only the immediate quote target is considered; nested quotes are unspecified.
 - Direct GET is initially hidden. Explicit POST reveal returns only this note's
-  page-local presentation. Do not persist/sync it or change E8 policy/revision;
+  (and, for a quote, its directly quoted target's) page-local presentation. Do
+  not persist/sync it or change E8 policy/revision;
   hide discards it, reload/revisit performs GET and hides again. Do not cache a
   revealed response across page lifetimes. There is no reusable reveal token.
-- Revealing a third-party quote may show the quoter's comment while its quoted
-  target remains independently hidden. The unblocked quoter remains actionable.
-  CW/sensitive/deletion/viewing-rights gates remain restricted and content-free;
-  domain operation restrictions also remain in those restricted responses.
+- Revealing a third-party quote shows the quoter's comment **and its directly
+  quoted target** in one explicit action (`DirectItem::Quote.quoted_note` is
+  `visible`). `EmbeddedNotePresentation` has no hidden variant, only `visible`
+  and `restricted`; this replaces the earlier rule that an outer reveal kept the
+  embedded target hidden. The unblocked quoter remains actionable: operations
+  follow the revealed note's own author domain, never the quoted source's.
+  CW/sensitive/deletion/viewing-rights gates remain restricted and content-free,
+  for the quoted target too; domain operation restrictions also remain in those
+  restricted responses.
+- Timeline, notifications and search are unchanged: FeedItem has no hidden
+  variant and a quote whose note or immediate target is in the controlled domain
+  is omitted whole, with the quoter's comment and without trace (ui-spec 5-1).
+- Breaking change to S8: `NotePresentation::Hidden` gains the required
+  `cause`, and `EmbeddedNotePresentation` loses `hidden`. A frontends repository
+  that pins the S8 generated schema by SHA must move to the new producer SHA.
 - DomainOperationPermission is **domain-only**, never a grant overriding other
   permissions. Blocked direct authors remain locked after reveal; mute adds no
   operation restriction. An explicit Emumet unblock must precede a new operation.
@@ -112,17 +138,19 @@ an explicit new producer SHA/checksum pin, not a moving branch.
 Boost-wrapper **direct reveal is undecided and outside this contract**; only its
 whole-item feed suppression is fixed. Direct reveal of the original note URL is
 ordinary single-note reveal. Also not decided here: Account discovery/lists,
-nested-quote attribution, historical notification/push delivery/recall details,
+nested-quote attribution (which domain hides a quote whose target quotes another
+note), historical notification/push delivery/recall details,
 or new Follow (Emumet D8G/D8R). These need later intent clarification; no schema
 silently defines them. Actual enforcement is a separate future ShuttlePub unit.
 
 ## Evidence
 
 `server/tests/personal_domain.rs` checks typed round trips, E8 field alignment
-and signed revision boundaries, 77 positive/negative JSON Schema fixtures,
+and signed revision boundaries, 96 positive/negative JSON Schema fixtures,
 unknown-field/value non-leakage, per-Profile exact canonical-host projections,
 whole quote/boost omission and unread counts, one-page reveal and independent
-gates, ten direction/action refusal cases including D13, counts, S3 compatibility,
+gates, the `cause` projection for quotes (`hidden_quote.json`: direct, quote,
+both, deleted/unviewable target, CW/sensitive target, other Profile, exact host), ten direction/action refusal cases including D13, counts, S3 compatibility,
 and all nine new routes plus S3 PUT with malformed unauthenticated requests.
 Existing openapi tests cover determinism, served-byte equality, routes! single
 registration, all-route 501s, and exclusion of development APIs. Existing S3
