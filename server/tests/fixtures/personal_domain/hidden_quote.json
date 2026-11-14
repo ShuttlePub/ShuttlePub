@@ -1288,5 +1288,251 @@
       },
       "feed_omitted": false
     }
+  },
+  {
+    "name": "author_muted_and_target_in_another_blocked_domain",
+    "description": "Two controls at once: the note author domain is muted and the quoted source is in another, blocked domain. Cause is direct and mode/domain/revision are the author-side mute; the blocked quoted source adds no operation restriction.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "muted.example",
+      "mode": "mute",
+      "revision": 2
+    },
+    "quoted_policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://muted.example/users/author",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://blocked.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": null
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "hidden",
+          "cause": "direct",
+          "mode": "mute",
+          "domain": "muted.example",
+          "revision": 2
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "visible",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000009",
+                "content": "SECRET_QUOTED_BODY"
+              }
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": true
+    }
+  },
+  {
+    "name": "author_blocked_and_target_in_another_muted_domain",
+    "description": "Reverse: the author domain is blocked, the quoted source is in another, muted domain. Cause is direct with the author-side block; operations on the blocked author stay locked after reveal.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "quoted_policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "muted.example",
+      "mode": "mute",
+      "revision": 2
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://blocked.example/users/author",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://muted.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": null
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "hidden",
+          "cause": "direct",
+          "mode": "block",
+          "domain": "blocked.example",
+          "revision": 4
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "visible",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000009",
+                "content": "SECRET_QUOTED_BODY"
+              }
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "quote": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "repost": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "like": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "emoji_reaction": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": true
+    }
   }
 ]

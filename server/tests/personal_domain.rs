@@ -323,9 +323,11 @@ fn project_quote(
     let target = &scenario["quoted"];
     let gate = target["gate"].as_str();
     let target_visible_to_caller = !matches!(gate, Some("deleted" | "visibility"));
+    // The quoted source may fall under a different control of the same Profile.
+    let quoted_policy = scenario.get("quoted_policy").unwrap_or(policy);
     let target_matches = applies
         && target_visible_to_caller
-        && actor_host(&target["actor_url"])? == policy["domain"];
+        && actor_host(&target["actor_url"])? == quoted_policy["domain"];
     let cause = if author_matches {
         Some("direct")
     } else if target_matches {
@@ -335,9 +337,15 @@ fn project_quote(
     };
     let profile_id = &scenario["viewer_profile_id"];
     if let (Some(cause), false) = (cause, revealed) {
+        // direct: the note's own author-side control; quote: the quoted source's.
+        let control = if cause == "direct" {
+            policy
+        } else {
+            quoted_policy
+        };
         return Ok(json!({"profile_id":profile_id,"presentation":{
-            "state":"hidden","cause":cause,"mode":policy["mode"],
-            "domain":policy["domain"],"revision":policy["revision"]}}));
+            "state":"hidden","cause":cause,"mode":control["mode"],
+            "domain":control["domain"],"revision":control["revision"]}}));
     }
     let quoted_note = match gate {
         Some(reason) => json!({"state":"restricted","reason":reason}),
@@ -366,6 +374,10 @@ fn quote_hidden_cause_names_the_quoted_domain_and_one_reveal_shows_the_source() 
     for scenario in scenarios.as_array().ok_or("scenarios")? {
         let name = scenario["name"].as_str().ok_or("name")?;
         roundtrip::<DomainControlRef>(&scenario["policy"])?;
+        if let Some(quoted_policy) = scenario.get("quoted_policy") {
+            roundtrip::<DomainControlRef>(quoted_policy)?;
+            assert_ne!(quoted_policy["domain"], scenario["policy"]["domain"]);
+        }
         let got = project_quote(scenario, false, &counts)?;
         let revealed = project_quote(scenario, true, &counts)?;
         assert_eq!(got, scenario["expect"]["get"], "{name} get");
@@ -384,6 +396,13 @@ fn quote_hidden_cause_names_the_quoted_domain_and_one_reveal_shows_the_source() 
                 assert!(!encoded.contains(forbidden), "{name}: {forbidden} leaked");
             }
             // cause=quote carries the quoted source's domain, never the note author's.
+            // cause=direct (even with a second control on the source) never names it.
+            if hidden["cause"] == "direct" {
+                assert_eq!(
+                    hidden["domain"],
+                    actor_host(&scenario["note"]["actor_url"])?
+                );
+            }
             if hidden["cause"] == "quote" {
                 assert_eq!(
                     hidden["domain"],
@@ -415,9 +434,10 @@ fn quote_hidden_cause_names_the_quoted_domain_and_one_reveal_shows_the_source() 
         // The timeline/search/notification contract is unchanged: a quote whose
         // note or immediate target is in the controlled domain is omitted whole.
         let applies = scenario["viewer_profile_id"] == scenario["policy"]["profile_id"];
+        let quoted_policy = scenario.get("quoted_policy").unwrap_or(&scenario["policy"]);
         let feed_omitted = applies
             && (actor_host(&scenario["note"]["actor_url"])? == scenario["policy"]["domain"]
-                || actor_host(&scenario["quoted"]["actor_url"])? == scenario["policy"]["domain"]);
+                || actor_host(&scenario["quoted"]["actor_url"])? == quoted_policy["domain"]);
         assert_eq!(feed_omitted, scenario["expect"]["feed_omitted"], "{name}");
     }
     assert_eq!(
