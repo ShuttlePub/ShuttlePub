@@ -1,0 +1,1538 @@
+[
+  {
+    "name": "quote_of_blocked_domain",
+    "description": "Quoter is uncontrolled, directly quoted source is in the blocked domain: hidden because of the quote, naming the source domain. One reveal shows the quote and its source; the unblocked quoter stays actionable.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://safe.example/users/quoter",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://blocked.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": null
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "hidden",
+          "cause": "quote",
+          "mode": "block",
+          "domain": "blocked.example",
+          "revision": 4
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "visible",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000009",
+                "content": "SECRET_QUOTED_BODY"
+              }
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": true
+    }
+  },
+  {
+    "name": "quote_of_muted_domain",
+    "description": "Same as a block, with the muted domain and its own revision.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "muted.example",
+      "mode": "mute",
+      "revision": 2
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://safe.example/users/quoter",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://muted.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": null
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "hidden",
+          "cause": "quote",
+          "mode": "mute",
+          "domain": "muted.example",
+          "revision": 2
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "visible",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000009",
+                "content": "SECRET_QUOTED_BODY"
+              }
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": true
+    }
+  },
+  {
+    "name": "author_in_blocked_domain_quotes_safe",
+    "description": "The note itself comes from the blocked domain: cause is direct. Operations on the blocked author stay locked after reveal.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://blocked.example/users/author",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://safe.example/users/quoter",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": null
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "hidden",
+          "cause": "direct",
+          "mode": "block",
+          "domain": "blocked.example",
+          "revision": 4
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "visible",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000009",
+                "content": "SECRET_QUOTED_BODY"
+              }
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "quote": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "repost": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "like": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "emoji_reaction": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": true
+    }
+  },
+  {
+    "name": "author_and_target_both_controlled",
+    "description": "Both apply: cause is direct with the note own author domain, and one reveal resolves both.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://blocked.example/users/author",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://blocked.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": null
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "hidden",
+          "cause": "direct",
+          "mode": "block",
+          "domain": "blocked.example",
+          "revision": 4
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "visible",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000009",
+                "content": "SECRET_QUOTED_BODY"
+              }
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "quote": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "repost": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "like": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "emoji_reaction": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": true
+    }
+  },
+  {
+    "name": "quoted_target_deleted",
+    "description": "A deleted quote target is not shown as a quote-caused hiding (that would disclose the domain of a note the caller cannot see): the quote is visible with a content-free restricted target.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://safe.example/users/quoter",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://blocked.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": "deleted"
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "restricted",
+              "reason": "deleted"
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "restricted",
+              "reason": "deleted"
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": true
+    }
+  },
+  {
+    "name": "quoted_target_not_viewable",
+    "description": "Same for a target the caller lacks viewing rights for.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://safe.example/users/quoter",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://blocked.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": "visibility"
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "restricted",
+              "reason": "visibility"
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "restricted",
+              "reason": "visibility"
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": true
+    }
+  },
+  {
+    "name": "quoted_target_cw_stays_restricted",
+    "description": "Hidden because of the quote; after reveal the quoted target keeps its CW gate, content-free.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://safe.example/users/quoter",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://blocked.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": "cw"
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "hidden",
+          "cause": "quote",
+          "mode": "block",
+          "domain": "blocked.example",
+          "revision": 4
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "restricted",
+              "reason": "cw"
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": true
+    }
+  },
+  {
+    "name": "quoted_target_sensitive_stays_restricted",
+    "description": "Hidden because of the quote; after reveal the sensitive gate keeps the target content-free.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://safe.example/users/quoter",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://blocked.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": "sensitive"
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "hidden",
+          "cause": "quote",
+          "mode": "block",
+          "domain": "blocked.example",
+          "revision": 4
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "restricted",
+              "reason": "sensitive"
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": true
+    }
+  },
+  {
+    "name": "other_profile_is_unaffected",
+    "description": "The policy belongs to another Profile; this Profile sees the quote with its source.",
+    "viewer_profile_id": "independent_profile",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://safe.example/users/quoter",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://blocked.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": null
+    },
+    "expect": {
+      "get": {
+        "profile_id": "independent_profile",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "visible",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000009",
+                "content": "SECRET_QUOTED_BODY"
+              }
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "reveal": {
+        "profile_id": "independent_profile",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "visible",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000009",
+                "content": "SECRET_QUOTED_BODY"
+              }
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": false
+    }
+  },
+  {
+    "name": "subdomain_is_not_the_controlled_domain",
+    "description": "Exact host match: sub.blocked.example is not blocked.example.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://safe.example/users/quoter",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://sub.blocked.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": null
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "visible",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000009",
+                "content": "SECRET_QUOTED_BODY"
+              }
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "visible",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000009",
+                "content": "SECRET_QUOTED_BODY"
+              }
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": false
+    }
+  },
+  {
+    "name": "author_muted_and_target_in_another_blocked_domain",
+    "description": "Two controls at once: the note author domain is muted and the quoted source is in another, blocked domain. Cause is direct and mode/domain/revision are the author-side mute; the blocked quoted source adds no operation restriction.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "muted.example",
+      "mode": "mute",
+      "revision": 2
+    },
+    "quoted_policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://muted.example/users/author",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://blocked.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": null
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "hidden",
+          "cause": "direct",
+          "mode": "mute",
+          "domain": "muted.example",
+          "revision": 2
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "visible",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000009",
+                "content": "SECRET_QUOTED_BODY"
+              }
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "allowed"
+            },
+            "quote": {
+              "status": "allowed"
+            },
+            "repost": {
+              "status": "allowed"
+            },
+            "like": {
+              "status": "allowed"
+            },
+            "emoji_reaction": {
+              "status": "allowed"
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": true
+    }
+  },
+  {
+    "name": "author_blocked_and_target_in_another_muted_domain",
+    "description": "Reverse: the author domain is blocked, the quoted source is in another, muted domain. Cause is direct with the author-side block; operations on the blocked author stay locked after reveal.",
+    "viewer_profile_id": "V1StGXR8_Z5jdHi6B-myT",
+    "policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "blocked.example",
+      "mode": "block",
+      "revision": 4
+    },
+    "quoted_policy": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "domain": "muted.example",
+      "mode": "mute",
+      "revision": 2
+    },
+    "note": {
+      "note_id": "00000000-0000-4000-8000-000000000003",
+      "actor_url": "https://blocked.example/users/author",
+      "comment": "SECRET_QUOTER_COMMENT"
+    },
+    "quoted": {
+      "note_id": "00000000-0000-4000-8000-000000000009",
+      "actor_url": "https://muted.example/users/source",
+      "content": "SECRET_QUOTED_BODY",
+      "gate": null
+    },
+    "expect": {
+      "get": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "hidden",
+          "cause": "direct",
+          "mode": "block",
+          "domain": "blocked.example",
+          "revision": 4
+        }
+      },
+      "reveal": {
+        "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+        "presentation": {
+          "state": "visible",
+          "item": {
+            "kind": "quote",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000003",
+              "content": "SECRET_QUOTER_COMMENT"
+            },
+            "quoted_note": {
+              "state": "visible",
+              "note": {
+                "note_id": "00000000-0000-4000-8000-000000000009",
+                "content": "SECRET_QUOTED_BODY"
+              }
+            }
+          },
+          "operations": {
+            "reply": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "quote": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "repost": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "like": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            },
+            "emoji_reaction": {
+              "status": "blocked",
+              "control": {
+                "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+                "domain": "blocked.example",
+                "mode": "block",
+                "revision": 4
+              }
+            }
+          },
+          "reaction_counts": {
+            "likes": 7,
+            "emoji": [
+              {
+                "emoji": {
+                  "type": "unicode",
+                  "value": "👍"
+                },
+                "count": 3
+              },
+              {
+                "emoji": {
+                  "type": "custom",
+                  "id": "blobcat"
+                },
+                "count": 2,
+                "view": {
+                  "emoji": {
+                    "type": "custom",
+                    "id": "blobcat"
+                  },
+                  "availability": "available",
+                  "shortcode": "blobcat",
+                  "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+                  "image_state": "present",
+                  "usage": "anywhere"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "feed_omitted": true
+    }
+  }
+]

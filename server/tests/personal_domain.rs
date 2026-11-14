@@ -134,7 +134,7 @@ fn assert_hidden(payload: &Value) -> TestResult {
     let object = payload.as_object().ok_or("hidden object")?;
     assert_eq!(
         object.keys().map(String::as_str).collect::<Vec<_>>(),
-        ["domain", "mode", "revision", "state"]
+        ["cause", "domain", "mode", "revision", "state"]
     );
     assert_eq!(payload["state"], "hidden");
     assert!(!serde_json::to_string(payload)?.contains("SECRET_"));
@@ -267,7 +267,7 @@ fn reveal_is_one_note_one_page_and_cannot_bypass_other_gates() -> TestResult {
     for scenario in scenarios.as_array().ok_or("reveal")? {
         let policy = scenario["policy"].clone();
         let before = policy.clone();
-        let hidden = json!({"state":"hidden","mode":policy["mode"],"domain":policy["domain"],"revision":policy["revision"]});
+        let hidden = json!({"state":"hidden","cause":"direct","mode":policy["mode"],"domain":policy["domain"],"revision":policy["revision"]});
         let counts = fixture("counts.json")?["before"].clone();
         for step in scenario["steps"].as_array().ok_or("steps")? {
             let action = step["action"].as_str().ok_or("action")?;
@@ -280,9 +280,6 @@ fn reveal_is_one_note_one_page_and_cannot_bypass_other_gates() -> TestResult {
                 "reveal" => {
                     json!({"state":"visible", "item":{"kind":"post", "note":{"note_id":step["note_id"],"content":"SECRET_BODY"}}, "operations":permissions(blocked,&policy),"reaction_counts":counts})
                 }
-                "reveal_quote" => {
-                    json!({"state":"visible","item":{"kind":"quote","note":{"note_id":step["note_id"],"content":"SECRET_QUOTER_COMMENT"},"quoted_note":hidden}, "operations":permissions(false,&policy),"reaction_counts":counts})
-                }
                 "reveal_restricted" => {
                     json!({"state":"restricted","reason":step["restriction"],"operations":permissions(blocked,&policy)})
                 }
@@ -292,13 +289,6 @@ fn reveal_is_one_note_one_page_and_cannot_bypass_other_gates() -> TestResult {
             assert_eq!(response, step["expect"], "{} {action}", scenario["name"]);
             check(&spec, "DirectNoteResponse", &response)?;
             roundtrip::<DirectNoteResponse>(&response)?;
-            if action == "reveal_quote" {
-                assert_hidden(&response["presentation"]["item"]["quoted_note"])?;
-                assert_eq!(
-                    response["presentation"]["operations"]["reply"]["status"],
-                    "allowed"
-                );
-            }
             if action == "reveal_restricted" {
                 let encoded = serde_json::to_string(&response)?;
                 assert!(!encoded.contains("SECRET_"));
@@ -309,6 +299,208 @@ fn reveal_is_one_note_one_page_and_cannot_bypass_other_gates() -> TestResult {
                 "reveal must never change Emumet policy/revision"
             );
         }
+    }
+    Ok(())
+}
+
+/// TEST-ONLY reference projection of D08 ui-spec 3-4 for one directly opened
+/// quote. Only the note's own author and its immediate quote target are looked
+/// at; a deleted/unviewable target never yields `cause: quote` (that would
+/// disclose the domain of a note the caller cannot see).
+fn project_quote(
+    scenario: &Value,
+    revealed: bool,
+    counts: &Value,
+) -> Result<Value, Box<dyn std::error::Error>> {
+    let policy = &scenario["policy"];
+    let applies = scenario["viewer_profile_id"] == policy["profile_id"];
+    let author_matches = applies && actor_host(&scenario["note"]["actor_url"])? == policy["domain"];
+    let target = &scenario["quoted"];
+    let gate = target["gate"].as_str();
+    let target_visible_to_caller = !matches!(gate, Some("deleted" | "visibility"));
+    // The quoted source may fall under a different control of the same Profile.
+    let quoted_policy = scenario.get("quoted_policy").unwrap_or(policy);
+    let target_matches = applies
+        && target_visible_to_caller
+        && actor_host(&target["actor_url"])? == quoted_policy["domain"];
+    let cause = if author_matches {
+        Some("direct")
+    } else if target_matches {
+        Some("quote")
+    } else {
+        None
+    };
+    let profile_id = &scenario["viewer_profile_id"];
+    if let (Some(cause), false) = (cause, revealed) {
+        // direct: the note's own author-side control; quote: the quoted source's.
+        let control = if cause == "direct" {
+            policy
+        } else {
+            quoted_policy
+        };
+        return Ok(json!({"profile_id":profile_id,"presentation":{
+            "state":"hidden","cause":cause,"mode":control["mode"],
+            "domain":control["domain"],"revision":control["revision"]}}));
+    }
+    let quoted_note = match gate {
+        Some(reason) => json!({"state":"restricted","reason":reason}),
+        None => {
+            json!({"state":"visible","note":{"note_id":target["note_id"],"content":target["content"]}})
+        }
+    };
+    // Domain-only operations follow the revealed note's own author, never the
+    // quoted source's domain.
+    let blocked = author_matches && policy["mode"] == "block";
+    Ok(json!({"profile_id":profile_id,"presentation":{
+        "state":"visible",
+        "item":{"kind":"quote",
+            "note":{"note_id":scenario["note"]["note_id"],"content":scenario["note"]["comment"]},
+            "quoted_note":quoted_note},
+        "operations":permissions(blocked, policy),
+        "reaction_counts":counts}}))
+}
+
+#[test]
+fn quote_hidden_cause_names_the_quoted_domain_and_one_reveal_shows_the_source() -> TestResult {
+    let spec = spec()?;
+    let counts = fixture("counts.json")?["before"].clone();
+    let scenarios = fixture("hidden_quote.json")?;
+    let mut causes = BTreeSet::new();
+    for scenario in scenarios.as_array().ok_or("scenarios")? {
+        let name = scenario["name"].as_str().ok_or("name")?;
+        roundtrip::<DomainControlRef>(&scenario["policy"])?;
+        if let Some(quoted_policy) = scenario.get("quoted_policy") {
+            roundtrip::<DomainControlRef>(quoted_policy)?;
+            assert_ne!(quoted_policy["domain"], scenario["policy"]["domain"]);
+        }
+        let got = project_quote(scenario, false, &counts)?;
+        let revealed = project_quote(scenario, true, &counts)?;
+        assert_eq!(got, scenario["expect"]["get"], "{name} get");
+        assert_eq!(revealed, scenario["expect"]["reveal"], "{name} reveal");
+        for response in [&got, &revealed] {
+            check(&spec, "DirectNoteResponse", response)?;
+            roundtrip::<DirectNoteResponse>(response)?;
+        }
+        let hidden = &got["presentation"];
+        if hidden["state"] == "hidden" {
+            causes.insert(hidden["cause"].as_str().ok_or("cause")?.to_owned());
+            assert_hidden(hidden)?;
+            // Before reveal nothing of the quote or its source is returned.
+            let encoded = serde_json::to_string(&got)?;
+            for forbidden in ["SECRET_", "users/", "00000000-0000-4000"] {
+                assert!(!encoded.contains(forbidden), "{name}: {forbidden} leaked");
+            }
+            // cause=quote carries the quoted source's domain, never the note author's.
+            // cause=direct (even with a second control on the source) never names it.
+            if hidden["cause"] == "direct" {
+                assert_eq!(
+                    hidden["domain"],
+                    actor_host(&scenario["note"]["actor_url"])?
+                );
+            }
+            if hidden["cause"] == "quote" {
+                assert_eq!(
+                    hidden["domain"],
+                    actor_host(&scenario["quoted"]["actor_url"])?
+                );
+                assert_ne!(
+                    hidden["domain"],
+                    actor_host(&scenario["note"]["actor_url"])?
+                );
+            }
+        } else {
+            // Not hidden: the target is shown or restricted, never an
+            // embedded hidden state.
+            assert_ne!(
+                got["presentation"]["item"]["quoted_note"]["state"],
+                "hidden"
+            );
+        }
+        // After reveal the target is visible unless an independent gate holds.
+        let quoted = &revealed["presentation"]["item"]["quoted_note"];
+        match scenario["quoted"]["gate"].as_str() {
+            None => assert_eq!(quoted["state"], "visible", "{name}"),
+            Some(reason) => {
+                assert_eq!(quoted["state"], "restricted", "{name}");
+                assert_eq!(quoted["reason"], reason);
+                assert!(!serde_json::to_string(quoted)?.contains("SECRET_"));
+            }
+        }
+        // The timeline/search/notification contract is unchanged: a quote whose
+        // note or immediate target is in the controlled domain is omitted whole.
+        let applies = scenario["viewer_profile_id"] == scenario["policy"]["profile_id"];
+        let quoted_policy = scenario.get("quoted_policy").unwrap_or(&scenario["policy"]);
+        let feed_omitted = applies
+            && (actor_host(&scenario["note"]["actor_url"])? == scenario["policy"]["domain"]
+                || actor_host(&scenario["quoted"]["actor_url"])? == quoted_policy["domain"]);
+        assert_eq!(feed_omitted, scenario["expect"]["feed_omitted"], "{name}");
+    }
+    assert_eq!(
+        causes,
+        BTreeSet::from(["direct".to_owned(), "quote".to_owned()])
+    );
+    Ok(())
+}
+
+#[test]
+fn hidden_cause_is_a_required_closed_enum_and_embedded_has_no_hidden_variant() -> TestResult {
+    let spec = spec()?;
+    assert_eq!(
+        spec["components"]["schemas"]["HiddenCause"]["enum"],
+        json!(["direct", "quote"])
+    );
+    let variants = spec["components"]["schemas"]["NotePresentation"]["oneOf"]
+        .as_array()
+        .ok_or("variants")?;
+    let hidden = variants
+        .iter()
+        .find(|v| v["properties"]["state"]["enum"] == json!(["hidden"]))
+        .ok_or("hidden variant")?;
+    let mut required: Vec<_> = hidden["required"]
+        .as_array()
+        .ok_or("required")?
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+    required.sort_unstable();
+    assert_eq!(required, ["cause", "domain", "mode", "revision", "state"]);
+    let mut properties: Vec<_> = hidden["properties"]
+        .as_object()
+        .ok_or("properties")?
+        .keys()
+        .map(String::as_str)
+        .collect();
+    properties.sort_unstable();
+    assert_eq!(properties, required);
+    let embedded_states: Vec<_> =
+        spec["components"]["schemas"]["EmbeddedNotePresentation"]["oneOf"]
+            .as_array()
+            .ok_or("embedded variants")?
+            .iter()
+            .map(|v| {
+                v["properties"]["state"]["enum"][0]
+                    .as_str()
+                    .unwrap_or_default()
+            })
+            .collect();
+    assert_eq!(embedded_states, ["visible", "restricted"]);
+    // A hidden state, with or without a cause, cannot be an embedded target.
+    for payload in [
+        json!({"state":"hidden","mode":"block","domain":"blocked.example","revision":4}),
+        json!({"state":"hidden","cause":"quote","mode":"block","domain":"blocked.example","revision":4}),
+    ] {
+        assert!(serde_json::from_value::<EmbeddedNotePresentation>(payload).is_err());
+    }
+    let missing = json!({"state":"hidden","mode":"block","domain":"blocked.example","revision":4});
+    assert!(serde_json::from_value::<NotePresentation>(missing).is_err());
+    let unknown = json!({"state":"hidden","cause":"nested_quote","mode":"block","domain":"blocked.example","revision":4});
+    assert!(serde_json::from_value::<NotePresentation>(unknown).is_err());
+    // The schema description documents both causes and the leak-free rules.
+    let doc = spec["components"]["schemas"]["HiddenCause"]["description"]
+        .as_str()
+        .ok_or("cause description")?;
+    for text in ["direct", "quote", "deleted or not viewable", "unspecified"] {
+        assert!(doc.contains(text), "missing {text}");
     }
     Ok(())
 }

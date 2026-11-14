@@ -221,6 +221,7 @@ fn route_and_schema_snapshot() -> TestResult {
             "ErrorCode",
             "FeedItem",
             "FieldViolation",
+            "HiddenCause",
             "InboundEmojiReactionRejection",
             "InboundLikeRejection",
             "InboundQuoteRejection",
