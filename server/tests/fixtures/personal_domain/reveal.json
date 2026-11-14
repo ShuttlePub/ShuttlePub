@@ -15,6 +15,7 @@
           "profile_id": "V1StGXR8_Z5jdHi6B-myT",
           "presentation": {
             "state": "hidden",
+            "cause": "direct",
             "mode": "mute",
             "domain": "blocked.example",
             "revision": 4
@@ -92,6 +93,7 @@
           "profile_id": "V1StGXR8_Z5jdHi6B-myT",
           "presentation": {
             "state": "hidden",
+            "cause": "direct",
             "mode": "mute",
             "domain": "blocked.example",
             "revision": 4
@@ -105,6 +107,7 @@
           "profile_id": "V1StGXR8_Z5jdHi6B-myT",
           "presentation": {
             "state": "hidden",
+            "cause": "direct",
             "mode": "mute",
             "domain": "blocked.example",
             "revision": 4
@@ -118,6 +121,7 @@
           "profile_id": "V1StGXR8_Z5jdHi6B-myT",
           "presentation": {
             "state": "hidden",
+            "cause": "direct",
             "mode": "mute",
             "domain": "blocked.example",
             "revision": 4
@@ -131,79 +135,10 @@
           "profile_id": "V1StGXR8_Z5jdHi6B-myT",
           "presentation": {
             "state": "hidden",
+            "cause": "direct",
             "mode": "mute",
             "domain": "blocked.example",
             "revision": 4
-          }
-        }
-      },
-      {
-        "action": "reveal_quote",
-        "note_id": "00000000-0000-4000-8000-000000000003",
-        "expect": {
-          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
-          "presentation": {
-            "state": "visible",
-            "item": {
-              "kind": "quote",
-              "note": {
-                "note_id": "00000000-0000-4000-8000-000000000003",
-                "content": "SECRET_QUOTER_COMMENT"
-              },
-              "quoted_note": {
-                "state": "hidden",
-                "mode": "mute",
-                "domain": "blocked.example",
-                "revision": 4
-              }
-            },
-            "operations": {
-              "reply": {
-                "status": "allowed"
-              },
-              "quote": {
-                "status": "allowed"
-              },
-              "repost": {
-                "status": "allowed"
-              },
-              "like": {
-                "status": "allowed"
-              },
-              "emoji_reaction": {
-                "status": "allowed"
-              }
-            },
-            "reaction_counts": {
-              "likes": 7,
-              "emoji": [
-                {
-                  "emoji": {
-                    "type": "unicode",
-                    "value": "👍"
-                  },
-                  "count": 3
-                },
-                {
-                  "emoji": {
-                    "type": "custom",
-                    "id": "blobcat"
-                  },
-                  "count": 2,
-                  "view": {
-                    "emoji": {
-                      "type": "custom",
-                      "id": "blobcat"
-                    },
-                    "availability": "available",
-                    "shortcode": "blobcat",
-                    "image_url": "https://emoji.shuttlepub.example/blobcat.png",
-                    "image_state": "present",
-                    "usage": "anywhere"
-                  }
-                }
-              ]
-            }
           }
         }
       },
@@ -341,6 +276,7 @@
           "profile_id": "V1StGXR8_Z5jdHi6B-myT",
           "presentation": {
             "state": "hidden",
+            "cause": "direct",
             "mode": "block",
             "domain": "blocked.example",
             "revision": 4
@@ -448,6 +384,7 @@
           "profile_id": "V1StGXR8_Z5jdHi6B-myT",
           "presentation": {
             "state": "hidden",
+            "cause": "direct",
             "mode": "block",
             "domain": "blocked.example",
             "revision": 4
@@ -461,6 +398,7 @@
           "profile_id": "V1StGXR8_Z5jdHi6B-myT",
           "presentation": {
             "state": "hidden",
+            "cause": "direct",
             "mode": "block",
             "domain": "blocked.example",
             "revision": 4
@@ -474,6 +412,7 @@
           "profile_id": "V1StGXR8_Z5jdHi6B-myT",
           "presentation": {
             "state": "hidden",
+            "cause": "direct",
             "mode": "block",
             "domain": "blocked.example",
             "revision": 4
@@ -487,79 +426,10 @@
           "profile_id": "V1StGXR8_Z5jdHi6B-myT",
           "presentation": {
             "state": "hidden",
+            "cause": "direct",
             "mode": "block",
             "domain": "blocked.example",
             "revision": 4
-          }
-        }
-      },
-      {
-        "action": "reveal_quote",
-        "note_id": "00000000-0000-4000-8000-000000000003",
-        "expect": {
-          "profile_id": "V1StGXR8_Z5jdHi6B-myT",
-          "presentation": {
-            "state": "visible",
-            "item": {
-              "kind": "quote",
-              "note": {
-                "note_id": "00000000-0000-4000-8000-000000000003",
-                "content": "SECRET_QUOTER_COMMENT"
-              },
-              "quoted_note": {
-                "state": "hidden",
-                "mode": "block",
-                "domain": "blocked.example",
-                "revision": 4
-              }
-            },
-            "operations": {
-              "reply": {
-                "status": "allowed"
-              },
-              "quote": {
-                "status": "allowed"
-              },
-              "repost": {
-                "status": "allowed"
-              },
-              "like": {
-                "status": "allowed"
-              },
-              "emoji_reaction": {
-                "status": "allowed"
-              }
-            },
-            "reaction_counts": {
-              "likes": 7,
-              "emoji": [
-                {
-                  "emoji": {
-                    "type": "unicode",
-                    "value": "👍"
-                  },
-                  "count": 3
-                },
-                {
-                  "emoji": {
-                    "type": "custom",
-                    "id": "blobcat"
-                  },
-                  "count": 2,
-                  "view": {
-                    "emoji": {
-                      "type": "custom",
-                      "id": "blobcat"
-                    },
-                    "availability": "available",
-                    "shortcode": "blobcat",
-                    "image_url": "https://emoji.shuttlepub.example/blobcat.png",
-                    "image_state": "present",
-                    "usage": "anywhere"
-                  }
-                }
-              ]
-            }
           }
         }
       },

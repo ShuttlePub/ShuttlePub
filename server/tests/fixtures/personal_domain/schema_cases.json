@@ -6,6 +6,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "mute",
         "domain": "blocked.example",
         "revision": 4
@@ -31,6 +32,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4
@@ -111,6 +113,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -123,10 +126,8 @@
     "name": "embedded_forbids_content",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "content": "SECRET_BODY"
     },
     "valid": false
@@ -138,6 +139,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -150,10 +152,8 @@
     "name": "embedded_forbids_body",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "body": "SECRET_BODY"
     },
     "valid": false
@@ -165,6 +165,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -179,10 +180,8 @@
     "name": "embedded_forbids_author",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "author": {
         "name": "SECRET_AUTHOR"
       }
@@ -196,6 +195,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -208,10 +208,8 @@
     "name": "embedded_forbids_author_name",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "author_name": "SECRET_AUTHOR"
     },
     "valid": false
@@ -223,6 +221,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -237,10 +236,8 @@
     "name": "embedded_forbids_media",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "media": [
         "SECRET_MEDIA"
       ]
@@ -254,6 +251,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -268,10 +266,8 @@
     "name": "embedded_forbids_attachments",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "attachments": [
         "SECRET_MEDIA"
       ]
@@ -285,6 +281,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -297,10 +294,8 @@
     "name": "embedded_forbids_cw",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "cw": "SECRET_CW"
     },
     "valid": false
@@ -312,6 +307,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -326,10 +322,8 @@
     "name": "embedded_forbids_mentions",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "mentions": [
         "SECRET_MENTION"
       ]
@@ -343,6 +337,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -357,10 +352,8 @@
     "name": "embedded_forbids_quote",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "quote": {
         "content": "SECRET_QUOTER_COMMENT"
       }
@@ -374,6 +367,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -386,10 +380,8 @@
     "name": "embedded_forbids_note_id",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "note_id": "00000000-0000-4000-8000-000000000002"
     },
     "valid": false
@@ -401,6 +393,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -413,10 +406,8 @@
     "name": "embedded_forbids_placeholder",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "placeholder": true
     },
     "valid": false
@@ -428,6 +419,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -440,10 +432,8 @@
     "name": "embedded_forbids_hidden_count",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "hidden_count": 1
     },
     "valid": false
@@ -455,6 +445,7 @@
       "profile_id": "V1StGXR8_Z5jdHi6B-myT",
       "presentation": {
         "state": "hidden",
+        "cause": "direct",
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4,
@@ -467,10 +458,8 @@
     "name": "embedded_forbids_unknown",
     "schema": "EmbeddedNotePresentation",
     "payload": {
-      "state": "hidden",
-      "mode": "block",
-      "domain": "blocked.example",
-      "revision": 4,
+      "state": "restricted",
+      "reason": "cw",
       "unknown": "SECRET_UNKNOWN"
     },
     "valid": false
@@ -1405,6 +1394,328 @@
         "mode": "block",
         "domain": "blocked.example",
         "revision": 4
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "hidden_quote_block",
+    "schema": "DirectNoteResponse",
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "presentation": {
+        "state": "hidden",
+        "cause": "quote",
+        "mode": "block",
+        "domain": "blocked.example",
+        "revision": 4
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "hidden_quote_mute",
+    "schema": "DirectNoteResponse",
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "presentation": {
+        "state": "hidden",
+        "cause": "quote",
+        "mode": "mute",
+        "domain": "muted.example",
+        "revision": 2
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "hidden_forbids_missing_cause",
+    "schema": "DirectNoteResponse",
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "presentation": {
+        "state": "hidden",
+        "mode": "block",
+        "domain": "blocked.example",
+        "revision": 4
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "hidden_forbids_unknown_cause",
+    "schema": "DirectNoteResponse",
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "presentation": {
+        "state": "hidden",
+        "cause": "nested_quote",
+        "mode": "block",
+        "domain": "blocked.example",
+        "revision": 4
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "hidden_forbids_null_cause",
+    "schema": "DirectNoteResponse",
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "presentation": {
+        "state": "hidden",
+        "cause": null,
+        "mode": "block",
+        "domain": "blocked.example",
+        "revision": 4
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "hidden_forbids_quoted_note",
+    "schema": "DirectNoteResponse",
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "presentation": {
+        "state": "hidden",
+        "cause": "quote",
+        "mode": "block",
+        "domain": "blocked.example",
+        "revision": 4,
+        "quoted_note": {
+          "state": "visible",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000009",
+            "content": "SECRET_QUOTED_BODY"
+          }
+        }
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "hidden_forbids_quoted_domain",
+    "schema": "DirectNoteResponse",
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "presentation": {
+        "state": "hidden",
+        "cause": "quote",
+        "mode": "block",
+        "domain": "blocked.example",
+        "revision": 4,
+        "quoted_domain": "blocked.example"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "hidden_forbids_quoted_author",
+    "schema": "DirectNoteResponse",
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "presentation": {
+        "state": "hidden",
+        "cause": "quote",
+        "mode": "block",
+        "domain": "blocked.example",
+        "revision": 4,
+        "quoted_author": "https://blocked.example/users/source"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "hidden_forbids_quoted_note_id",
+    "schema": "DirectNoteResponse",
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "presentation": {
+        "state": "hidden",
+        "cause": "quote",
+        "mode": "block",
+        "domain": "blocked.example",
+        "revision": 4,
+        "quoted_note_id": "00000000-0000-4000-8000-000000000009"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "hidden_forbids_quoted_content",
+    "schema": "DirectNoteResponse",
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "presentation": {
+        "state": "hidden",
+        "cause": "quote",
+        "mode": "block",
+        "domain": "blocked.example",
+        "revision": 4,
+        "quoted_content": "SECRET_QUOTED_BODY"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "embedded_forbids_hidden_state",
+    "schema": "EmbeddedNotePresentation",
+    "payload": {
+      "state": "hidden",
+      "mode": "block",
+      "domain": "blocked.example",
+      "revision": 4
+    },
+    "valid": false
+  },
+  {
+    "name": "embedded_forbids_hidden_cause",
+    "schema": "EmbeddedNotePresentation",
+    "payload": {
+      "state": "hidden",
+      "cause": "quote",
+      "mode": "block",
+      "domain": "blocked.example",
+      "revision": 4
+    },
+    "valid": false
+  },
+  {
+    "name": "embedded_visible",
+    "schema": "EmbeddedNotePresentation",
+    "payload": {
+      "state": "visible",
+      "note": {
+        "note_id": "00000000-0000-4000-8000-000000000009",
+        "content": "QUOTED_BODY_AFTER_REVEAL"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "embedded_restricted_cw",
+    "schema": "EmbeddedNotePresentation",
+    "payload": {
+      "state": "restricted",
+      "reason": "cw"
+    },
+    "valid": true
+  },
+  {
+    "name": "embedded_restricted_sensitive",
+    "schema": "EmbeddedNotePresentation",
+    "payload": {
+      "state": "restricted",
+      "reason": "sensitive"
+    },
+    "valid": true
+  },
+  {
+    "name": "embedded_restricted_deleted",
+    "schema": "EmbeddedNotePresentation",
+    "payload": {
+      "state": "restricted",
+      "reason": "deleted"
+    },
+    "valid": true
+  },
+  {
+    "name": "embedded_restricted_visibility",
+    "schema": "EmbeddedNotePresentation",
+    "payload": {
+      "state": "restricted",
+      "reason": "visibility"
+    },
+    "valid": true
+  },
+  {
+    "name": "revealed_quote_with_visible_target",
+    "schema": "DirectNoteResponse",
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "presentation": {
+        "state": "visible",
+        "item": {
+          "kind": "quote",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000003",
+            "content": "QUOTER_COMMENT"
+          },
+          "quoted_note": {
+            "state": "visible",
+            "note": {
+              "note_id": "00000000-0000-4000-8000-000000000009",
+              "content": "QUOTED_BODY"
+            }
+          }
+        },
+        "operations": {
+          "reply": {
+            "status": "allowed"
+          },
+          "quote": {
+            "status": "allowed"
+          },
+          "repost": {
+            "status": "allowed"
+          },
+          "like": {
+            "status": "allowed"
+          },
+          "emoji_reaction": {
+            "status": "allowed"
+          }
+        },
+        "reaction_counts": {
+          "likes": 0,
+          "emoji": []
+        }
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "revealed_quote_with_hidden_target_is_not_a_state",
+    "schema": "DirectNoteResponse",
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "presentation": {
+        "state": "visible",
+        "item": {
+          "kind": "quote",
+          "note": {
+            "note_id": "00000000-0000-4000-8000-000000000003",
+            "content": "QUOTER_COMMENT"
+          },
+          "quoted_note": {
+            "state": "hidden",
+            "mode": "block",
+            "domain": "blocked.example",
+            "revision": 4
+          }
+        },
+        "operations": {
+          "reply": {
+            "status": "allowed"
+          },
+          "quote": {
+            "status": "allowed"
+          },
+          "repost": {
+            "status": "allowed"
+          },
+          "like": {
+            "status": "allowed"
+          },
+          "emoji_reaction": {
+            "status": "allowed"
+          }
+        },
+        "reaction_counts": {
+          "likes": 0,
+          "emoji": []
+        }
       }
     },
     "valid": false

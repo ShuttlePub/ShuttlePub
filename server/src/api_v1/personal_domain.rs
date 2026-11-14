@@ -158,30 +158,25 @@ pub enum ContentRestriction {
     Visibility,
 }
 
-/// One embedded target only. Revealing an outer quote never reveals
-/// this target. No decision about attribution through nested quotes is made.
+/// The directly quoted target of a revealed quote, and only that one target.
+/// It has NO hidden variant: a domain-controlled quoted target is hidden together
+/// with its quote (see [`HiddenCause::Quote`]), and the single explicit reveal of
+/// the quote resolves both. After reveal the target is `visible` unless an
+/// independent gate (CW, sensitive, deletion, viewing rights) keeps it
+/// `restricted`, content-free. No decision about attribution through nested
+/// quotes (the target quoting yet another note) is made.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum EmbeddedNotePresentation {
-    Visible {
-        note: NoteContent,
-    },
-    Hidden {
-        mode: DomainControlMode,
-        domain: ControlDomain,
-        /// E8 revision, starts at 1, monotonically increases, never reused.
-        #[schema(minimum = 1)]
-        revision: i64,
-    },
-    Restricted {
-        reason: ContentRestriction,
-    },
+    Visible { note: NoteContent },
+    Restricted { reason: ContentRestriction },
 }
 
 /// Explicitly revealed item. Boost-wrapper direct reveal is undecided and not
 /// part of S8 (the original note URL uses ordinary single-note reveal).
-/// Operations concern its own author/target, NOT the
-/// domain of an embedded quote. The unblocked quoter remains actionable.
+/// A revealed quote carries its directly quoted target too (one reveal shows
+/// the whole quote). Operations concern the revealed note's own author, NOT the
+/// domain of its embedded quote target. The unblocked quoter remains actionable.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum DirectItem {
@@ -258,13 +253,38 @@ pub struct ReactionCounts {
     pub emoji: Vec<EmojiReactionCount>,
 }
 
-/// Direct URL presentation. Hidden contains ONLY state, E8 mode, domain and
-/// revision: no body, author details, media, CW text, mention or embedded data.
+/// Why a note is hidden on direct open (D08 ui-spec 3-1 / 3-4).
+///
+/// - `direct`: the note's own author is in the controlled domain. The UI says
+///   the note is from a muted/blocked domain.
+/// - `quote`: the note's own author is NOT controlled, but the note directly
+///   quotes a note of a controlled domain. The UI says the note quotes a
+///   muted/blocked domain's post and names that domain (the quoted source).
+///
+/// When both apply the cause is `direct` and the domain is the note's own
+/// author's; the single reveal resolves both. A quote whose directly quoted
+/// target is deleted or not viewable by the caller is never `quote`: that would
+/// disclose the domain of a note the caller cannot see, so the target is
+/// `restricted` instead. Only the immediate quote target is considered; nested
+/// quotes are unspecified.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HiddenCause {
+    Direct,
+    Quote,
+}
+
+/// Direct URL presentation. Hidden contains ONLY state, cause, E8 mode, domain
+/// and revision: no body, author details, media, CW text, mention, note id or
+/// embedded/quoted data (not even the quoted author). `mode`, `domain` and
+/// `revision` are those of the E8 control that caused the hiding: the note's own
+/// author domain for `direct`, the quoted source's domain for `quote`.
 /// Restricted remains content-free even after an explicit single-note reveal.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum NotePresentation {
     Hidden {
+        cause: HiddenCause,
         mode: DomainControlMode,
         domain: ControlDomain,
         /// E8 revision, not a session/reveal token.
@@ -283,10 +303,11 @@ pub enum NotePresentation {
 }
 
 /// Profile scoped direct view. Initial GET is hidden for a controlled domain.
-/// POST reveal is explicit and applies only to this note in the current page.
-/// Never persist or sync reveal, never change E8 revision. Hide discards the
-/// page-local result; reload/revisit uses GET and hides again. Reveal never
-/// changes another note, embedded content, block, CW/sensitive or viewing rights.
+/// POST reveal is explicit and applies only to this note and, for a quote, its
+/// directly quoted target, in the current page. Never persist or sync reveal,
+/// never change E8 revision. Hide discards the page-local result; reload/revisit
+/// uses GET and hides again. Reveal never changes another note, a nested quote,
+/// block, CW/sensitive or viewing rights.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DirectNoteResponse {
@@ -513,7 +534,8 @@ pub async fn get_personal_content_notifications() -> ApiV1Error {
     ApiV1Error::not_implemented()
 }
 
-/// Direct URL: initially hidden, including entire third-party quotes.
+/// Direct URL: initially hidden, including entire third-party quotes of a
+/// controlled domain's note (`cause: quote`, naming the quoted source's domain).
 ///
 /// Contract only: no real filtering, enforcement or posting. Always 501.
 #[utoipa::path(
@@ -533,7 +555,8 @@ pub async fn get_personal_note() -> ApiV1Error {
     ApiV1Error::not_implemented()
 }
 
-/// Explicit one-note, current-page-only reveal. Never persist, unblock or bypass independent gates.
+/// Explicit one-note, current-page-only reveal. A quote is revealed together with
+/// its directly quoted target. Never persist, unblock or bypass independent gates.
 ///
 /// Contract only: no real filtering, enforcement or posting. Always 501.
 #[utoipa::path(
