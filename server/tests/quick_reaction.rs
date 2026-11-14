@@ -20,10 +20,11 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use server::api_v1::{
     ApiV1Error, ErrorBody, ErrorCode,
+    personal_domain::ControlDomain,
     quick_reaction::{
-        EmojiAvailability, EmojiRef, EmojiUnavailableReason, EmojiView, MAX_FAVORITES,
-        ProfileNanoid, PutReaction, QuickReactionSettings, ReactionState, RevisionConflictBody,
-        UpdateQuickReactionSettings,
+        EmojiAvailability, EmojiImageState, EmojiRef, EmojiUnavailableReason, EmojiUsage,
+        EmojiView, MAX_FAVORITES, ProfileNanoid, PutReaction, QuickReactionSettings, ReactionState,
+        RevisionConflictBody, UpdateQuickReactionSettings,
     },
 };
 use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
@@ -88,6 +89,9 @@ fn emoji_view_omits_absent_display_data() -> TestResult {
         unavailable_reason: None,
         shortcode: None,
         image_url: None,
+        origin: None,
+        image_state: None,
+        usage: None,
     };
     assert_eq!(
         serde_json::to_value(&unicode_view)?,
@@ -99,6 +103,9 @@ fn emoji_view_omits_absent_display_data() -> TestResult {
         unavailable_reason: Some(EmojiUnavailableReason::Deleted),
         shortcode: Some("oldcat".into()),
         image_url: None,
+        origin: None,
+        image_state: None,
+        usage: None,
     };
     assert_eq!(
         serde_json::to_value(&gone)?,
@@ -244,7 +251,228 @@ fn revision_conflict_body_serializes_with_current_revision() -> TestResult {
     Ok(())
 }
 
+fn external_view() -> EmojiView {
+    EmojiView {
+        emoji: custom("partycat@remote.example"),
+        availability: EmojiAvailability::Available,
+        unavailable_reason: None,
+        shortcode: Some("partycat".into()),
+        image_url: Some("https://remote.example/emoji/partycat.png".into()),
+        origin: Some(ControlDomain("remote.example".into())),
+        image_state: Some(EmojiImageState::Present),
+        usage: Some(EmojiUsage::ExistingReactionOnly),
+    }
+}
+
+#[test]
+fn external_emoji_view_serializes_origin_image_state_and_usage() -> TestResult {
+    assert_eq!(
+        serde_json::to_value(external_view())?,
+        json!({
+            "emoji": {"type": "custom", "id": "partycat@remote.example"},
+            "availability": "available",
+            "shortcode": "partycat",
+            "image_url": "https://remote.example/emoji/partycat.png",
+            "origin": "remote.example",
+            "image_state": "present",
+            "usage": "existing_reaction_only"
+        })
+    );
+    let parsed: EmojiView = serde_json::from_value(json!({
+        "emoji": {"type": "custom", "id": "ghostcat@remote.example"},
+        "availability": "available",
+        "shortcode": "ghostcat",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+    }))?;
+    assert_eq!(parsed.image_state, Some(EmojiImageState::Missing));
+    assert_eq!(parsed.availability, EmojiAvailability::Available);
+    assert!(parsed.image_url.is_none());
+    parsed.check_consistency()?;
+    // S3 era views (no new fields) still parse.
+    let legacy: EmojiView = serde_json::from_value(
+        json!({"emoji": {"type": "custom", "id": "blobcat"}, "availability": "available"}),
+    )?;
+    assert!(legacy.origin.is_none() && legacy.image_state.is_none() && legacy.usage.is_none());
+    assert!(serde_json::from_value::<EmojiUsage>(json!("everywhere")).is_err());
+    assert!(serde_json::from_value::<EmojiImageState>(json!("broken")).is_err());
+    Ok(())
+}
+
+#[test]
+fn emoji_view_consistency_rules() -> TestResult {
+    external_view().check_consistency()?;
+    let mut anywhere = external_view();
+    anywhere.usage = Some(EmojiUsage::Anywhere);
+    assert!(
+        anywhere.check_consistency().is_err(),
+        "external must be existing_reaction_only"
+    );
+    let mut no_usage = external_view();
+    no_usage.usage = None;
+    assert!(no_usage.check_consistency().is_err());
+    let mut no_url = external_view();
+    no_url.image_url = None;
+    assert!(
+        no_url.check_consistency().is_err(),
+        "present needs image_url"
+    );
+    let mut missing_with_url = external_view();
+    missing_with_url.image_state = Some(EmojiImageState::Missing);
+    assert!(missing_with_url.check_consistency().is_err());
+    let mut nameless = external_view();
+    nameless.image_state = Some(EmojiImageState::Missing);
+    nameless.image_url = None;
+    nameless.shortcode = None;
+    assert!(
+        nameless.check_consistency().is_err(),
+        "missing image needs a shortcode"
+    );
+    nameless.shortcode = Some(String::new());
+    assert!(
+        nameless.check_consistency().is_err(),
+        "shortcode must not be empty"
+    );
+    // image state is independent of availability
+    let mut missing = external_view();
+    missing.image_state = Some(EmojiImageState::Missing);
+    missing.image_url = None;
+    missing.check_consistency()?;
+    let mut gone = missing.clone();
+    gone.availability = EmojiAvailability::Unavailable;
+    assert!(
+        gone.check_consistency().is_err(),
+        "unavailable needs a reason"
+    );
+    gone.unavailable_reason = Some(EmojiUnavailableReason::Deleted);
+    gone.check_consistency()?;
+    let mut unicode_with_origin = EmojiView {
+        emoji: unicode("👍"),
+        availability: EmojiAvailability::Available,
+        unavailable_reason: None,
+        shortcode: None,
+        image_url: None,
+        origin: None,
+        image_state: None,
+        usage: None,
+    };
+    unicode_with_origin.check_consistency()?;
+    unicode_with_origin.origin = Some(ControlDomain("remote.example".into()));
+    assert!(unicode_with_origin.check_consistency().is_err());
+    Ok(())
+}
+
+#[test]
+fn emoji_usage_not_allowed_is_a_422_error_code() -> TestResult {
+    assert_eq!(
+        serde_json::to_value(ErrorCode::EmojiUsageNotAllowed)?,
+        json!("emoji_usage_not_allowed")
+    );
+    assert_eq!(
+        ErrorCode::EmojiUsageNotAllowed.status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let body: ErrorBody = serde_json::from_value(
+        json!({"code": "emoji_usage_not_allowed", "message": "external emoji"}),
+    )?;
+    assert_eq!(body.code, ErrorCode::EmojiUsageNotAllowed);
+    Ok(())
+}
+
 // --------------------------------------------------------------- schema ----
+
+#[test]
+fn schema_states_the_external_emoji_fields() -> TestResult {
+    let spec = spec()?;
+    let schemas = &spec["components"]["schemas"];
+    let view = &schemas["EmojiView"];
+    for field in ["origin", "image_state", "usage"] {
+        assert!(view["properties"][field].is_object(), "EmojiView.{field}");
+    }
+    assert_eq!(
+        view["required"],
+        json!(["emoji", "availability"]),
+        "the new fields are optional"
+    );
+    assert_eq!(
+        schemas["EmojiImageState"]["enum"],
+        json!(["present", "missing"])
+    );
+    assert_eq!(
+        schemas["EmojiUsage"]["enum"],
+        json!(["existing_reaction_only", "anywhere"])
+    );
+    let refs = |schema: &Value| {
+        serde_json::to_string(schema)
+            .map(|text| text.contains("#/components/schemas/ControlDomain"))
+    };
+    assert!(refs(&view["properties"]["origin"])?);
+    // EmojiRef is unchanged: still exactly the two closed variants.
+    let variants = schemas["EmojiRef"]["oneOf"]
+        .as_array()
+        .ok_or("EmojiRef oneOf")?;
+    assert_eq!(variants.len(), 2);
+    for (variant, (tag, field)) in variants
+        .iter()
+        .zip([("unicode", "value"), ("custom", "id")])
+    {
+        assert_eq!(variant["properties"]["type"]["enum"], json!([tag]));
+        let mut names: Vec<&str> = variant["properties"]
+            .as_object()
+            .ok_or("properties")?
+            .keys()
+            .map(String::as_str)
+            .collect();
+        names.sort_unstable();
+        let mut expected = vec!["type", field];
+        expected.sort_unstable();
+        assert_eq!(names, expected);
+    }
+    assert!(
+        schemas["ErrorCode"]["enum"]
+            .as_array()
+            .ok_or("ErrorCode enum")?
+            .contains(&json!("emoji_usage_not_allowed"))
+    );
+    let count = &schemas["EmojiReactionCount"];
+    assert!(count["properties"]["view"].is_object());
+    assert_eq!(count["required"], json!(["emoji", "count"]));
+    Ok(())
+}
+
+#[test]
+fn reaction_put_documents_every_outcome_of_the_check_order() -> TestResult {
+    let spec = spec()?;
+    let op = &spec["paths"]["/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction"]["put"];
+    let description = op["description"].as_str().ok_or("description")?;
+    for needle in [
+        "emoji_unavailable",
+        "emoji_usage_not_allowed",
+        "409",
+        "no-op",
+    ] {
+        assert!(
+            description.contains(needle),
+            "operation text misses {needle}"
+        );
+    }
+    assert_eq!(
+        op["responses"]["409"]["content"]["application/json"]["schema"]["$ref"],
+        "#/components/schemas/ErrorBody"
+    );
+    let settings =
+        &spec["paths"]["/api/v1/profiles/{profile_nanoid}/quick-reaction-settings"]["put"];
+    let text = settings["responses"]["422"]["description"]
+        .as_str()
+        .ok_or("422")?;
+    assert!(text.contains("emoji_usage_not_allowed"));
+    // Reading and deleting stay untouched by the external emoji rules.
+    let delete =
+        &spec["paths"]["/api/v1/profiles/{profile_nanoid}/notes/{note_id}/reaction"]["delete"];
+    assert!(delete["responses"]["409"].is_null() && delete["responses"]["422"].is_null());
+    Ok(())
+}
 
 fn schema_of(spec: &Value, operation: &str, target: &Value) -> Option<Value> {
     for item in spec["paths"].as_object()?.values() {
@@ -323,7 +551,7 @@ fn every_operation_is_authenticated_and_documents_its_errors() -> TestResult {
         ),
         (
             "putNoteReaction",
-            &["200", "400", "401", "403", "404", "422", "501"][..],
+            &["200", "400", "401", "403", "404", "409", "422", "501"][..],
         ),
         (
             "deleteNoteReaction",
@@ -351,8 +579,12 @@ fn every_operation_is_authenticated_and_documents_its_errors() -> TestResult {
                 op["responses"]["409"]["content"]["application/json"]["schema"]["$ref"]
                     .as_str()
                     .map(|s| s.to_owned()),
-                (id == "putQuickReactionSettings")
-                    .then(|| "#/components/schemas/RevisionConflictBody".to_owned()),
+                match id {
+                    "putQuickReactionSettings" =>
+                        Some("#/components/schemas/RevisionConflictBody".to_owned()),
+                    "putNoteReaction" => Some("#/components/schemas/ErrorBody".to_owned()),
+                    _ => None,
+                },
                 "{id}"
             );
         }
@@ -487,6 +719,9 @@ struct CustomEmojiSetup {
     image_url: Option<String>,
     availability: EmojiAvailability,
     reason: Option<EmojiUnavailableReason>,
+    origin: Option<ControlDomain>,
+    image_state: Option<EmojiImageState>,
+    usage: Option<EmojiUsage>,
 }
 
 #[derive(Deserialize)]
@@ -500,6 +735,10 @@ struct Setup {
     emoji: BTreeMap<String, CustomEmojiSetup>,
     settings: SettingsSetup,
     reaction: Option<EmojiRef>,
+    /// Emoji other people reacted to the Note with (the chips that exist
+    /// besides the Profile's own selection).
+    #[serde(default)]
+    chips: Vec<EmojiRef>,
 }
 
 /// Executable statement of the documented semantics for one Profile and one
@@ -510,6 +749,7 @@ struct Model {
     revision: u64,
     favorites: Vec<EmojiRef>,
     reaction: Option<EmojiRef>,
+    chips: Vec<EmojiRef>,
 }
 
 impl Model {
@@ -519,6 +759,17 @@ impl Model {
             revision: setup.settings.revision,
             favorites: setup.settings.favorites,
             reaction: setup.reaction,
+            chips: setup.chips,
+        }
+    }
+
+    fn external(&self, emoji: &EmojiRef) -> bool {
+        match emoji {
+            EmojiRef::Unicode { .. } => false,
+            EmojiRef::Custom { id } => self
+                .emoji
+                .get(id)
+                .is_some_and(|e| e.usage == Some(EmojiUsage::ExistingReactionOnly)),
         }
     }
 
@@ -540,6 +791,9 @@ impl Model {
                 unavailable_reason: None,
                 shortcode: None,
                 image_url: None,
+                origin: None,
+                image_state: None,
+                usage: None,
             };
         };
         match self.emoji.get(id) {
@@ -549,6 +803,9 @@ impl Model {
                 unavailable_reason: entry.reason,
                 shortcode: entry.shortcode.clone(),
                 image_url: entry.image_url.clone(),
+                origin: entry.origin.clone(),
+                image_state: entry.image_state,
+                usage: entry.usage,
             },
             None => EmojiView {
                 emoji: emoji.clone(),
@@ -556,6 +813,9 @@ impl Model {
                 unavailable_reason: Some(EmojiUnavailableReason::Deleted),
                 shortcode: None,
                 image_url: None,
+                origin: None,
+                image_state: None,
+                usage: None,
             },
         }
     }
@@ -584,6 +844,21 @@ impl Model {
                 .map(|field| server::api_v1::FieldViolation {
                     field,
                     message: "emoji is unavailable".into(),
+                })
+                .collect(),
+        }
+    }
+
+    fn usage_error(code: ErrorCode, message: &str, fields: Vec<String>) -> ErrorBody {
+        ErrorBody {
+            code,
+            domain_block: None,
+            message: message.into(),
+            details: fields
+                .into_iter()
+                .map(|field| server::api_v1::FieldViolation {
+                    field,
+                    message: message.into(),
                 })
                 .collect(),
         }
@@ -628,6 +903,23 @@ impl Model {
                 if !refused.is_empty() {
                     return respond(422, serde_json::to_value(Self::unavailable_error(refused)));
                 }
+                let external: Vec<String> = request
+                    .favorites
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, e)| self.external(e))
+                    .map(|(i, _)| format!("/favorites/{i}"))
+                    .collect();
+                if !external.is_empty() {
+                    return respond(
+                        422,
+                        serde_json::to_value(Self::usage_error(
+                            ErrorCode::EmojiUsageNotAllowed,
+                            "an external emoji can only be used from an existing reaction",
+                            external,
+                        )),
+                    );
+                }
                 self.favorites = request.favorites;
                 self.revision += 1;
                 respond(200, serde_json::to_value(self.settings()))
@@ -649,6 +941,34 @@ impl Model {
                         422,
                         serde_json::to_value(Self::unavailable_error(vec!["/emoji".into()])),
                     );
+                }
+                if self.reaction.as_ref() == Some(&request.emoji) {
+                    return respond(
+                        200,
+                        serde_json::to_value(self.reaction_state().map_err(|e| e.to_string())?),
+                    );
+                }
+                if self.external(&request.emoji) {
+                    if !self.chips.contains(&request.emoji) {
+                        return respond(
+                            422,
+                            serde_json::to_value(Self::usage_error(
+                                ErrorCode::EmojiUsageNotAllowed,
+                                "an external emoji can only be used from an existing reaction",
+                                vec!["/emoji".into()],
+                            )),
+                        );
+                    }
+                    if self.reaction.is_some() {
+                        return respond(
+                            409,
+                            serde_json::to_value(Self::usage_error(
+                                ErrorCode::Conflict,
+                                "remove the current reaction before reacting with an external emoji",
+                                vec!["/emoji".into()],
+                            )),
+                        );
+                    }
                 }
                 self.reaction = Some(request.emoji);
                 respond(
@@ -676,6 +996,9 @@ impl Model {
         let entry = self.emoji.entry(id.to_owned()).or_insert(CustomEmojiSetup {
             shortcode: None,
             image_url: None,
+            origin: None,
+            image_state: None,
+            usage: None,
             availability,
             reason,
         });
@@ -685,6 +1008,9 @@ impl Model {
             && reason == Some(EmojiUnavailableReason::Deleted)
         {
             entry.image_url = None;
+            if entry.image_state.is_some() {
+                entry.image_state = Some(EmojiImageState::Missing);
+            }
         }
     }
 }
@@ -758,6 +1084,26 @@ fn scenarios_follow_the_documented_semantics_and_the_schema() -> TestResult {
             );
             if let Some(favorites) = body.get("favorites").and_then(Value::as_array) {
                 assert!(favorites.len() <= MAX_FAVORITES, "{label}");
+                for favorite in favorites {
+                    let view: EmojiView = serde_json::from_value(favorite.clone())?;
+                    assert_ne!(
+                        view.usage,
+                        Some(EmojiUsage::ExistingReactionOnly),
+                        "{label}: an external emoji is never a favorite"
+                    );
+                }
+            }
+            let mut views: Vec<&Value> = body
+                .get("favorites")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .collect();
+            views.extend(body.get("emoji").filter(|v| v.is_object()));
+            for view in views {
+                let view: EmojiView = serde_json::from_value(view.clone())?;
+                view.check_consistency()
+                    .map_err(|problem| format!("{label}: {problem}"))?;
             }
         }
     }

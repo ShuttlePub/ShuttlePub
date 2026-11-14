@@ -986,5 +986,263 @@
       "message": "this endpoint is defined by the API contract but not implemented yet"
     },
     "schema_valid": true
+  },
+  {
+    "name": "reaction response: external emoji selected carries origin, image_state and usage",
+    "target": {
+      "operation": "getNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+      "emoji": {
+        "emoji": {
+          "type": "custom",
+          "id": "partycat@remote.example"
+        },
+        "availability": "available",
+        "shortcode": "partycat",
+        "image_url": "https://remote.example/emoji/partycat.png",
+        "origin": "remote.example",
+        "image_state": "present",
+        "usage": "existing_reaction_only"
+      }
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction response: external emoji with a missing image is still available",
+    "target": {
+      "operation": "putNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+      "emoji": {
+        "emoji": {
+          "type": "custom",
+          "id": "partycat@remote.example"
+        },
+        "availability": "available",
+        "shortcode": "partycat",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+      }
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction response: deleted external emoji is unavailable and its image missing",
+    "target": {
+      "operation": "getNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+      "emoji": {
+        "emoji": {
+          "type": "custom",
+          "id": "partycat@remote.example"
+        },
+        "availability": "unavailable",
+        "shortcode": "partycat",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only",
+        "unavailable_reason": "deleted"
+      }
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction response: legacy view without the D09 fields stays valid",
+    "target": {
+      "operation": "getNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+      "emoji": {
+        "emoji": {
+          "type": "custom",
+          "id": "blobcat"
+        },
+        "availability": "available",
+        "shortcode": "blobcat"
+      }
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction response: unknown usage value is rejected",
+    "target": {
+      "operation": "getNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+      "emoji": {
+        "emoji": {
+          "type": "custom",
+          "id": "partycat@remote.example"
+        },
+        "availability": "available",
+        "shortcode": "partycat",
+        "image_url": "https://remote.example/emoji/partycat.png",
+        "origin": "remote.example",
+        "image_state": "present",
+        "usage": "everywhere"
+      }
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "reaction response: unknown image_state value is rejected",
+    "target": {
+      "operation": "getNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+      "emoji": {
+        "emoji": {
+          "type": "custom",
+          "id": "partycat@remote.example"
+        },
+        "availability": "available",
+        "shortcode": "partycat",
+        "image_url": "https://remote.example/emoji/partycat.png",
+        "origin": "remote.example",
+        "image_state": "broken",
+        "usage": "existing_reaction_only"
+      }
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "reaction response: origin must be a string",
+    "target": {
+      "operation": "getNoteReaction",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+      "emoji": {
+        "emoji": {
+          "type": "custom",
+          "id": "partycat@remote.example"
+        },
+        "availability": "available",
+        "shortcode": "partycat",
+        "image_url": "https://remote.example/emoji/partycat.png",
+        "origin": 5,
+        "image_state": "present",
+        "usage": "existing_reaction_only"
+      }
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "reaction PUT 422 emoji_usage_not_allowed: external emoji without a chip",
+    "target": {
+      "operation": "putNoteReaction",
+      "kind": "response",
+      "status": "422"
+    },
+    "body": {
+      "code": "emoji_usage_not_allowed",
+      "message": "an external emoji can only be used from an existing reaction",
+      "details": [
+        {
+          "field": "/emoji",
+          "message": "an external emoji can only be used from an existing reaction"
+        }
+      ]
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction PUT 409 conflict: external emoji while another reaction is selected",
+    "target": {
+      "operation": "putNoteReaction",
+      "kind": "response",
+      "status": "409"
+    },
+    "body": {
+      "code": "conflict",
+      "message": "remove the current reaction before reacting with an external emoji",
+      "details": [
+        {
+          "field": "/emoji",
+          "message": "remove the current reaction before reacting with an external emoji"
+        }
+      ]
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "reaction PUT 409 rejects a made-up code",
+    "target": {
+      "operation": "putNoteReaction",
+      "kind": "response",
+      "status": "409"
+    },
+    "body": {
+      "code": "emoji_usage",
+      "message": "x"
+    },
+    "schema_valid": false
+  },
+  {
+    "name": "settings PUT 422 emoji_usage_not_allowed: external emoji as a favorite",
+    "target": {
+      "operation": "putQuickReactionSettings",
+      "kind": "response",
+      "status": "422"
+    },
+    "body": {
+      "code": "emoji_usage_not_allowed",
+      "message": "an external emoji can only be used from an existing reaction",
+      "details": [
+        {
+          "field": "/favorites/1",
+          "message": "an external emoji can only be used from an existing reaction"
+        }
+      ]
+    },
+    "schema_valid": true
+  },
+  {
+    "name": "settings response: local custom favorite carries image_state and usage anywhere",
+    "target": {
+      "operation": "getQuickReactionSettings",
+      "kind": "response",
+      "status": "200"
+    },
+    "body": {
+      "revision": 2,
+      "favorites": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "blobcat"
+          },
+          "availability": "available",
+          "shortcode": "blobcat",
+          "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+          "image_state": "present",
+          "usage": "anywhere"
+        }
+      ]
+    },
+    "schema_valid": true
   }
 ]

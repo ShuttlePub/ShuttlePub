@@ -192,3 +192,41 @@ sequences (retry, conflict, unavailable favourite, deleting an unavailable
 reaction). Every payload is validated against the generated schema, and the
 scenarios are replayed against a small reference model of the semantics above
 that lives in the test only.
+
+### External custom emoji (D09, `remote-emoji-reuse-api-contract`)
+
+Extends the contract above for reactions made with a custom emoji of another
+server. Still contract only (`501` stubs): nothing is fetched, cached or
+federated. `EmojiRef` is unchanged; the extra facts are optional `EmojiView`
+fields and an optional `view` on the S8 `EmojiReactionCount` chip
+(`personal_domain.rs`):
+
+- `origin` (same canonical host form as the E8 `ControlDomain`): present
+  exactly for external emoji. Because the server always sends `view` for custom
+  emoji chips, the UI decides the globe mark per chip from `view.origin`;
+  same-named emoji of different servers are different chips (different `emoji`
+  id and `origin`).
+- `image_state` (`present` | `missing`), independent of `availability`: a
+  missing image is shown as `:shortcode:` and an `available` emoji can still be
+  selected (d09-q02); after the origin deleted it and the local copy expired
+  (d09-q03, period not part of the contract) it is `unavailable` + `missing`.
+- `usage` (`existing_reaction_only` | `anywhere`): an external emoji is
+  `existing_reaction_only` (d09-q01): never in the picker, recents or
+  favourites. Settings `PUT` with one is `422 emoji_usage_not_allowed` at
+  `/favorites/{index}` and no settings answer lists one.
+- Reaction `PUT` check order, first match answers: availability (`422
+  emoji_unavailable`) → same as the current selection (`200` no-op) → external
+  emoji without a chip of it on the Note (`422 emoji_usage_not_allowed`) →
+  external emoji while the Profile reacted with another emoji (`409 conflict`,
+  no direct replacement, current reaction stays) → select (`200`). The chip and
+  conflict rules only apply to `existing_reaction_only` emoji; Unicode and
+  same-server custom emoji keep the replacement behaviour. `DELETE` is
+  unchanged. D03 q09/q10 add nothing to any response, so no field exists for them.
+- `ErrorCode` gained `emoji_usage_not_allowed` (422); `putNoteReaction` now
+  documents a `409` (`ErrorBody`).
+
+Tests: scenarios `remote_*.json` (piggy-back lifecycle, missing chip, 409,
+local replacement, availability first, missing image, never a favourite) are
+replayed by the same reference model; `schema_cases.json` gained D09 response
+cases; `tests/fixtures/personal_domain/remote_emoji_chips.json` checks the
+per-chip origin guarantee (`EmojiReactionCount::check_consistency`).

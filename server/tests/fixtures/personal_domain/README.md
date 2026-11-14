@@ -11,5 +11,6 @@ semantics; production does not filter or enforce policies.
 - reveal.json: initial hidden, single-note display, other-note isolation, hide/reload/revisit, quoted-target isolation, independent gates.
 - rejections.json: five distinct actions in each direction; D13 allow does not bypass block.
 - counts.json: accepted historical counts survive block and refused new attempts.
+- remote_emoji_chips.json: D09 reaction chips with external custom emoji (`EmojiReactionCount.view.origin`), same-named emoji of different servers, and chips that violate the per-chip rules.
 
 See ../../../docs/personal-domain-content-contract.md for scope and E8 correspondence.
