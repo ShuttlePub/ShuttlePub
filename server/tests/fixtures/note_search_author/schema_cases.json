@@ -1,0 +1,788 @@
+[
+  {
+    "name": "author_remote_full",
+    "schema": "SearchAuthor",
+    "valid": true,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_local_server",
+    "schema": "SearchAuthor",
+    "valid": true,
+    "payload": {
+      "actor_url": "https://local.example/users/alice",
+      "acct": "alice@local.example",
+      "display_name": "Alice",
+      "icon_url": null
+    }
+  },
+  {
+    "name": "author_display_fields_null",
+    "schema": "SearchAuthor",
+    "valid": true,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": null,
+      "icon_url": null
+    }
+  },
+  {
+    "name": "author_unicode_display_name",
+    "schema": "SearchAuthor",
+    "valid": true,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "日本語 太郎 🙂",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_actor_url_with_port",
+    "schema": "SearchAuthor",
+    "valid": true,
+    "payload": {
+      "actor_url": "https://remote.example:8443/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_actor_url_http",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "actor_url": "http://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_actor_url_without_host",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "actor_url": "https:///users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_actor_url_userinfo",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "actor_url": "https://user@remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_actor_url_is_acct",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "actor_url": "@alice@remote.example",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_actor_url_missing",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_acct_missing",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_display_name_missing",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_icon_url_missing",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice"
+    }
+  },
+  {
+    "name": "author_acct_leading_at",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "@alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_acct_without_host",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_acct_empty",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_acct_with_space",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice @remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_acct_two_ats",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "a@b@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_display_name_number",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": 1,
+      "icon_url": "https://remote.example/icons/alice.png"
+    }
+  },
+  {
+    "name": "author_icon_url_http",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "http://remote.example/a.png"
+    }
+  },
+  {
+    "name": "author_icon_url_empty",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": ""
+    }
+  },
+  {
+    "name": "author_unknown_field_inbox",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png",
+      "inbox": "https://remote.example/inbox"
+    }
+  },
+  {
+    "name": "author_unknown_field_public_key",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png",
+      "public_key": "-----BEGIN PUBLIC KEY-----"
+    }
+  },
+  {
+    "name": "author_unknown_field_account_id",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png",
+      "account_id": "0190-0000"
+    }
+  },
+  {
+    "name": "author_unknown_field_relationship",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png",
+      "relationship": "muted"
+    }
+  },
+  {
+    "name": "author_unknown_field_origin",
+    "schema": "SearchAuthor",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice",
+      "icon_url": "https://remote.example/icons/alice.png",
+      "fetched_via": "webfinger",
+      "cached_at": "2026-11-14T03:00:00Z"
+    }
+  },
+  {
+    "name": "resolve_response_remote",
+    "schema": "ResolveAuthorResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "author": {
+        "actor_url": "https://remote.example/users/alice",
+        "acct": "alice@remote.example",
+        "display_name": "Alice",
+        "icon_url": "https://remote.example/icons/alice.png"
+      }
+    }
+  },
+  {
+    "name": "resolve_response_local",
+    "schema": "ResolveAuthorResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "author": {
+        "actor_url": "https://local.example/users/alice",
+        "acct": "alice@local.example",
+        "display_name": "Alice",
+        "icon_url": "https://remote.example/icons/alice.png"
+      }
+    }
+  },
+  {
+    "name": "resolve_response_author_missing",
+    "schema": "ResolveAuthorResponse",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT"
+    }
+  },
+  {
+    "name": "resolve_response_profile_id_missing",
+    "schema": "ResolveAuthorResponse",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "author": {
+        "actor_url": "https://remote.example/users/alice",
+        "acct": "alice@remote.example",
+        "display_name": "Alice",
+        "icon_url": "https://remote.example/icons/alice.png"
+      }
+    }
+  },
+  {
+    "name": "resolve_response_profile_id_invalid",
+    "schema": "ResolveAuthorResponse",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "profile_id": "bad id!",
+      "author": {
+        "actor_url": "https://remote.example/users/alice",
+        "acct": "alice@remote.example",
+        "display_name": "Alice",
+        "icon_url": "https://remote.example/icons/alice.png"
+      }
+    }
+  },
+  {
+    "name": "resolve_response_unknown_field",
+    "schema": "ResolveAuthorResponse",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "author": {
+        "actor_url": "https://remote.example/users/alice",
+        "acct": "alice@remote.example",
+        "display_name": "Alice",
+        "icon_url": "https://remote.example/icons/alice.png"
+      },
+      "candidates": []
+    }
+  },
+  {
+    "name": "resolve_response_author_array",
+    "schema": "ResolveAuthorResponse",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "author": [
+        {
+          "actor_url": "https://remote.example/users/alice",
+          "acct": "alice@remote.example",
+          "display_name": "Alice",
+          "icon_url": "https://remote.example/icons/alice.png"
+        }
+      ]
+    }
+  },
+  {
+    "name": "suggestions_zero",
+    "schema": "SuggestAuthorsResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": []
+    }
+  },
+  {
+    "name": "suggestions_one",
+    "schema": "SuggestAuthorsResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "actor_url": "https://remote.example/users/u0",
+          "acct": "u0@remote.example",
+          "display_name": "User 0",
+          "icon_url": "https://remote.example/icons/alice.png"
+        }
+      ]
+    }
+  },
+  {
+    "name": "suggestions_five",
+    "schema": "SuggestAuthorsResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "actor_url": "https://remote.example/users/u0",
+          "acct": "u0@remote.example",
+          "display_name": "User 0",
+          "icon_url": "https://remote.example/icons/alice.png"
+        },
+        {
+          "actor_url": "https://remote.example/users/u1",
+          "acct": "u1@remote.example",
+          "display_name": "User 1",
+          "icon_url": "https://remote.example/icons/alice.png"
+        },
+        {
+          "actor_url": "https://remote.example/users/u2",
+          "acct": "u2@remote.example",
+          "display_name": "User 2",
+          "icon_url": "https://remote.example/icons/alice.png"
+        },
+        {
+          "actor_url": "https://remote.example/users/u3",
+          "acct": "u3@remote.example",
+          "display_name": "User 3",
+          "icon_url": "https://remote.example/icons/alice.png"
+        },
+        {
+          "actor_url": "https://remote.example/users/u4",
+          "acct": "u4@remote.example",
+          "display_name": "User 4",
+          "icon_url": "https://remote.example/icons/alice.png"
+        }
+      ]
+    }
+  },
+  {
+    "name": "suggestions_local_and_remote_mixed",
+    "schema": "SuggestAuthorsResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "actor_url": "https://local.example/users/alice",
+          "acct": "alice@local.example",
+          "display_name": null,
+          "icon_url": null
+        },
+        {
+          "actor_url": "https://remote.example/users/alice",
+          "acct": "alice@remote.example",
+          "display_name": "Alice",
+          "icon_url": "https://remote.example/icons/alice.png"
+        }
+      ]
+    }
+  },
+  {
+    "name": "suggestions_six",
+    "schema": "SuggestAuthorsResponse",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "actor_url": "https://remote.example/users/u0",
+          "acct": "u0@remote.example",
+          "display_name": "User 0",
+          "icon_url": "https://remote.example/icons/alice.png"
+        },
+        {
+          "actor_url": "https://remote.example/users/u1",
+          "acct": "u1@remote.example",
+          "display_name": "User 1",
+          "icon_url": "https://remote.example/icons/alice.png"
+        },
+        {
+          "actor_url": "https://remote.example/users/u2",
+          "acct": "u2@remote.example",
+          "display_name": "User 2",
+          "icon_url": "https://remote.example/icons/alice.png"
+        },
+        {
+          "actor_url": "https://remote.example/users/u3",
+          "acct": "u3@remote.example",
+          "display_name": "User 3",
+          "icon_url": "https://remote.example/icons/alice.png"
+        },
+        {
+          "actor_url": "https://remote.example/users/u4",
+          "acct": "u4@remote.example",
+          "display_name": "User 4",
+          "icon_url": "https://remote.example/icons/alice.png"
+        },
+        {
+          "actor_url": "https://remote.example/users/u5",
+          "acct": "u5@remote.example",
+          "display_name": "User 5",
+          "icon_url": "https://remote.example/icons/alice.png"
+        }
+      ]
+    }
+  },
+  {
+    "name": "suggestions_duplicate_actor_url_is_schema_valid_but_type_rejected",
+    "schema": "SuggestAuthorsResponse",
+    "valid": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "actor_url": "https://remote.example/users/alice",
+          "acct": "alice@remote.example",
+          "display_name": "Alice",
+          "icon_url": "https://remote.example/icons/alice.png"
+        },
+        {
+          "actor_url": "https://remote.example/users/alice",
+          "acct": "alice@remote.example",
+          "display_name": "Again",
+          "icon_url": "https://remote.example/icons/alice.png"
+        }
+      ]
+    },
+    "serde_rejects": true
+  },
+  {
+    "name": "suggestions_items_missing",
+    "schema": "SuggestAuthorsResponse",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT"
+    }
+  },
+  {
+    "name": "suggestions_items_null",
+    "schema": "SuggestAuthorsResponse",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": null
+    }
+  },
+  {
+    "name": "suggestions_invalid_actor_url_item",
+    "schema": "SuggestAuthorsResponse",
+    "valid": false,
+    "serde_rejects": false,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "actor_url": "not a url",
+          "acct": "alice@remote.example",
+          "display_name": "Alice",
+          "icon_url": "https://remote.example/icons/alice.png"
+        }
+      ]
+    }
+  },
+  {
+    "name": "suggestions_with_total",
+    "schema": "SuggestAuthorsResponse",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "total": 0
+    }
+  },
+  {
+    "name": "suggestions_with_next_cursor",
+    "schema": "SuggestAuthorsResponse",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "next_cursor": "abc"
+    }
+  },
+  {
+    "name": "suggestions_with_hidden_count",
+    "schema": "SuggestAuthorsResponse",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [],
+      "hidden": 2
+    }
+  },
+  {
+    "name": "suggestions_item_unknown_field",
+    "schema": "SuggestAuthorsResponse",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "profile_id": "V1StGXR8_Z5jdHi6B-myT",
+      "items": [
+        {
+          "actor_url": "https://remote.example/users/alice",
+          "acct": "alice@remote.example",
+          "display_name": "Alice",
+          "icon_url": "https://remote.example/icons/alice.png",
+          "inbox": "https://remote.example/inbox"
+        }
+      ]
+    }
+  },
+  {
+    "name": "error_400_acct",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "invalid_request",
+      "message": "acct must not be empty",
+      "details": [
+        {
+          "field": "acct",
+          "message": "acct must not be empty"
+        }
+      ]
+    }
+  },
+  {
+    "name": "error_400_prefix",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "invalid_request",
+      "message": "prefix must not be empty",
+      "details": [
+        {
+          "field": "prefix",
+          "message": "prefix must not be empty"
+        }
+      ]
+    }
+  },
+  {
+    "name": "error_404_acct",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "not_found",
+      "message": "no such author",
+      "details": [
+        {
+          "field": "acct",
+          "message": "no such author"
+        }
+      ]
+    }
+  },
+  {
+    "name": "error_409_acct_ambiguous",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "conflict",
+      "message": "several verified mappings match this acct",
+      "details": [
+        {
+          "field": "acct",
+          "message": "several verified mappings match this acct"
+        }
+      ]
+    }
+  },
+  {
+    "name": "error_503_author_lookup_timeout",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "author_lookup_timeout",
+      "message": "the author lookup timed out"
+    }
+  },
+  {
+    "name": "error_503_author_lookup_unavailable",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "author_lookup_unavailable",
+      "message": "the author lookup is unavailable"
+    }
+  },
+  {
+    "name": "error_429_rate_limited",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "rate_limited",
+      "message": "too many lookups"
+    }
+  },
+  {
+    "name": "error_501_not_implemented",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "not_implemented",
+      "message": "this endpoint is defined by the API contract but not implemented yet"
+    }
+  },
+  {
+    "name": "error_500_internal",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "internal",
+      "message": "unexpected failure"
+    }
+  },
+  {
+    "name": "error_search_timeout_is_a_different_code",
+    "schema": "ErrorBody",
+    "valid": true,
+    "payload": {
+      "code": "search_timeout",
+      "message": "the search timed out"
+    }
+  },
+  {
+    "name": "error_unknown_code_webfinger_failed",
+    "schema": "ErrorBody",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "code": "webfinger_failed",
+      "message": "remote lookup failed"
+    }
+  },
+  {
+    "name": "error_code_with_dash",
+    "schema": "ErrorBody",
+    "valid": false,
+    "serde_rejects": true,
+    "payload": {
+      "code": "author-lookup-timeout",
+      "message": "x"
+    }
+  }
+]

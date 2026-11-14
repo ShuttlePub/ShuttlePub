@@ -606,7 +606,10 @@
           "emoji_usage_not_allowed",
           "internal",
           "not_implemented",
-          "search_timeout"
+          "search_timeout",
+          "rate_limited",
+          "author_lookup_timeout",
+          "author_lookup_unavailable"
         ],
         "type": "string"
       },
@@ -1344,6 +1347,23 @@
         ],
         "type": "string"
       },
+      "ResolveAuthorResponse": {
+        "additionalProperties": false,
+        "description": "Answer of `resolveNoteSearchAuthor`: the one author the acct designates.\n\n`Cache-Control: private, no-store` applies (the answer depends on the viewing Profile).",
+        "properties": {
+          "author": {
+            "$ref": "#/components/schemas/SearchAuthor"
+          },
+          "profile_id": {
+            "$ref": "#/components/schemas/ProfileNanoid"
+          }
+        },
+        "required": [
+          "profile_id",
+          "author"
+        ],
+        "type": "object"
+      },
       "RevisionConflictBody": {
         "description": "`409` body for a stale `expected_revision`: the common `ErrorBody` fields\nwith `code` fixed to `revision_conflict`, plus the stored revision.",
         "properties": {
@@ -1376,6 +1396,47 @@
           "code",
           "message",
           "current_revision"
+        ],
+        "type": "object"
+      },
+      "SearchAuthor": {
+        "additionalProperties": false,
+        "description": "One author of a lookup result. Closed: it carries no inbox, public key, Account\nID, relationship state (follow / mute / block), fetch origin or cache time.",
+        "properties": {
+          "acct": {
+            "description": "`user@host` without a leading `@`. An author of this server carries this server's\nown host. In a resolve answer it is the confirmed or verified acct; in a suggestion\nit is the acct shown for the author, which for a remote author may be derived for\ndisplay only and therefore need not resolve. A chosen candidate is identified by\n`actor_url`, never by resolving this text again.",
+            "example": "alice@remote.example",
+            "maxLength": 512,
+            "minLength": 1,
+            "pattern": "^[^@\\s]+@[^@\\s]+$",
+            "type": "string"
+          },
+          "actor_url": {
+            "$ref": "#/components/schemas/ActorUrl",
+            "description": "Canonical actor ID URL, the same type and constraints as the `author` of\n`searchPersonalNotes` (`ActorUrl`): a result can be passed straight to it."
+          },
+          "display_name": {
+            "description": "Display name as stored, or `null` when the author has none. The key is always present.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon_url": {
+            "description": "Avatar URL (https) as stored, or `null`. The key is always present. A browser that\nloads a remote icon directly reveals its IP address to that server: how icons are\nfetched or proxied is the frontends' image policy, not part of this contract.",
+            "maxLength": 2048,
+            "pattern": "^https://[^\\s]+$",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "actor_url",
+          "acct",
+          "display_name",
+          "icon_url"
         ],
         "type": "object"
       },
@@ -1449,6 +1510,27 @@
           "author",
           "created_at",
           "body"
+        ],
+        "type": "object"
+      },
+      "SuggestAuthorsResponse": {
+        "additionalProperties": false,
+        "description": "Answer of `suggestNoteSearchAuthors`: up to five candidates, best first. No paging,\nno total, no hidden count. Never contains an author the Profile mutes or blocks\n(individually or by domain), and no actor URL twice. An empty `items` is an ordinary\n`200` (nothing matches), never a stand-in for an error.\n\n`Cache-Control: private, no-store` applies (the answer depends on the viewing Profile).",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SearchAuthor"
+            },
+            "maxItems": 5,
+            "type": "array"
+          },
+          "profile_id": {
+            "$ref": "#/components/schemas/ProfileNanoid"
+          }
+        },
+        "required": [
+          "profile_id",
+          "items"
         ],
         "type": "object"
       },
@@ -2788,6 +2870,310 @@
         ]
       }
     },
+    "/api/v1/profiles/{profile_nanoid}/search/authors/resolve": {
+      "get": {
+        "description": "The target set is the authors ShuttlePub has already fetched notes of AND the viewing\nProfile may publicly refer to. The acct is resolved only through a username this server\nhas confirmed or a verified remote acct mapping. The server never asks the remote\nserver: no WebFinger, no actor fetch, synchronous or asynchronous. An acct that cannot\nbe resolved is `404 not_found` (`details.field = acct`), never a guess; several matching\nmappings are `409 conflict`, never the first one. Mute/block does not hide an author\nhere (the acct was typed explicitly, and the later search follows `searchPersonalNotes`:\nan author of a muted or blocked domain gives an ordinary empty 200). Every response\ncarries `Cache-Control: private, no-store`. Contract only: it never searches. Always 501.",
+        "operationId": "resolveNoteSearchAuthor",
+        "parameters": [
+          {
+            "description": "Exactly one acct typed after `from:@`: `user@host`, `@user@host`, or without a host\n`user` / `@user`, which is THIS server's username (a host equal to this server's own\nhost means the same). One leading `@` is removed; the username is not lowercased and no\nhost is guessed; the host is normalised to lowercase ASCII (IDNA) and must be a valid\nDNS name without port, IP address or trailing dot. At most 512 characters after\nnormalisation (513 raw). Empty, repeated, whitespace, control or bidi control\ncharacters, URL syntax (`from:` / `acct:` prefixes, actor URLs) and an invalid host are\n`400 invalid_request` with `details.field = acct`. It resolves only through a username\nthis server has confirmed or a verified remote acct mapping, never through an acct\nderived for display (`preferred_username` + actor host, not verified by WebFinger).",
+            "in": "query",
+            "name": "acct",
+            "required": true,
+            "schema": {
+              "maxLength": 513,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Viewing Profile (Emumet profile_nanoid)",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveAuthorResponse"
+                }
+              }
+            },
+            "description": "Future contract response, never returned by the stub. Cache-Control: private, no-store.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always `private, no-store`",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request: acct missing, repeated, empty, over-long, containing whitespace, control or bidi control characters or URL syntax, or with an invalid host (details.field = acct)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "forbidden: the caller cannot act as this Profile"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "not_found: the Profile, or an acct that is not a fetched author this server can confirm (username unknown here, no verified remote acct mapping; details.field = acct). Never produced by asking the remote server."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "conflict: several verified mappings match the acct, so it cannot be decided (details.field = acct). The first match is never picked silently."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "rate_limited: too many lookups",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying",
+                "schema": {
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "internal: unexpected failure; never turned into a missing author"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Contract only; always returned until implemented"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "author_lookup_timeout or author_lookup_unavailable: the INTERNAL author lookup (not WebFinger) timed out or is unavailable; distinct from search_timeout of searchPersonalNotes. Never turned into a missing author."
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Resolve one acct to the author it designates (contract only; always 501).",
+        "tags": [
+          "note-search-author"
+        ]
+      }
+    },
+    "/api/v1/profiles/{profile_nanoid}/search/authors/suggestions": {
+      "get": {
+        "description": "At most 5 authors whose display name or acct starts with the prefix, among the authors\nShuttlePub has already fetched notes of AND the viewing Profile may publicly refer to.\nAuthors the Profile mutes or blocks (individually or by domain) are never candidates.\nEmumet's shared display cache is not a source (it would leak fetch history caused by\nother Profiles' block/mute), and no external lookup is made, synchronously or\nasynchronously. Order: acct equals the prefix, then acct starts with it, then display name\nstarts with it; ties by normalised acct, then actor URL. One entry per actor URL. No\ncandidate is `200` with `items: []`. Every response carries\n`Cache-Control: private, no-store`. Always 501.",
+        "operationId": "suggestNoteSearchAuthors",
+        "parameters": [
+          {
+            "description": "Exactly one prefix typed after `from:@`, matched against the display name OR the\nacct of candidate authors from the front only: no substring, regular expression or\nwildcard, and `%` / `_` are literal characters. One leading `@` is removed; 1..=512\ncharacters remain (513 raw); spaces are allowed, control characters are not\n(`400 invalid_request`, `details.field = prefix`). Matching alone applies Unicode\nnormalisation (NFKC) and lowercasing to both sides; returned text keeps its stored form.",
+            "in": "query",
+            "name": "prefix",
+            "required": true,
+            "schema": {
+              "maxLength": 513,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Viewing Profile (Emumet profile_nanoid)",
+            "in": "path",
+            "name": "profile_nanoid",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProfileNanoid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestAuthorsResponse"
+                }
+              }
+            },
+            "description": "Future contract response, never returned by the stub. 0..=5 candidates; none is `items: []`. Cache-Control: private, no-store.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always `private, no-store`",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "invalid_request: prefix missing, repeated, empty (also after removing the leading @), over-long or containing control characters (details.field = prefix)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "forbidden: the caller cannot act as this Profile"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "not_found: the Profile"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "rate_limited: too many lookups",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying",
+                "schema": {
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "internal: unexpected failure; never turned into an empty candidate list"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Contract only; always returned until implemented"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "author_lookup_timeout or author_lookup_unavailable: the INTERNAL author lookup (not WebFinger) timed out or is unavailable; distinct from search_timeout. Never turned into an empty candidate list."
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Author candidates for the text typed after `from:@` (contract only; always 501).",
+        "tags": [
+          "note-search-author"
+        ]
+      }
+    },
     "/api/v1/profiles/{profile_nanoid}/timeline": {
       "get": {
         "description": "Contract only: no real filtering, enforcement or posting. Always 501.",
@@ -2929,6 +3315,10 @@
     {
       "description": "S8 personal domain display and post refusal contracts. E8 owns policy; no filtering or enforcement is implemented. All routes answer 501. Inbound DTOs are internal decision contracts, not an inbox.",
       "name": "personal-domain-content"
+    },
+    {
+      "description": "D04 author lookup for the search UI's from:@acct input: resolve one acct, suggest up to five authors. Contract only: every route answers 501. The server never queries a remote server (no WebFinger, no actor fetch).",
+      "name": "note-search-author"
     }
   ]
 }

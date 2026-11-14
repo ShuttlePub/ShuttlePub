@@ -17,6 +17,7 @@ serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
 url = "2"
+icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
 axum = "0.8"
 utoipa = { version = "5", features = ["uuid"] }
 utoipa-axum = "0.2"

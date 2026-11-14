@@ -1,0 +1,812 @@
+{
+  "note": "Test-only reference projection data. Production routes never search; they answer 501. A candidate must be fetched AND publicly referable; mute/block (individual or by domain, per viewing Profile) removes it from suggestions only. verified_acct_mappings are the only remote acct basis of resolve; an author's `acct` is a display value and may be unverified. No case implies an external lookup.",
+  "local_host": "local.example",
+  "authors": [
+    {
+      "key": "a1",
+      "actor_url": "https://local.example/users/alice",
+      "acct": "alice@local.example",
+      "display_name": "Alice Liddell",
+      "icon_url": "https://local.example/icons/alice.png",
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": "alice"
+    },
+    {
+      "key": "a2",
+      "actor_url": "https://remote.example/users/alice",
+      "acct": "alice@remote.example",
+      "display_name": "Alice (remote)",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a3",
+      "actor_url": "https://remote.example/users/bob",
+      "acct": "bob@remote.example",
+      "display_name": "Alison Bob",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a4",
+      "actor_url": "https://other.example/users/alicia",
+      "acct": "alicia@other.example",
+      "display_name": "Alicia",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a5",
+      "actor_url": "https://y.example/users/aaron",
+      "acct": "aaron@y.example",
+      "display_name": "Alice Zero",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a6",
+      "actor_url": "https://muted.example/users/carol",
+      "acct": "carol@muted.example",
+      "display_name": "Alice Muted",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a7",
+      "actor_url": "https://blocked.example/users/dave",
+      "acct": "dave@blocked.example",
+      "display_name": "Alice Dave",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a8",
+      "actor_url": "https://remote.example/users/erin",
+      "acct": "erin@remote.example",
+      "display_name": "Alice Erin",
+      "icon_url": null,
+      "fetched": false,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a9",
+      "actor_url": "https://local.example/users/frank",
+      "acct": "frank@local.example",
+      "display_name": "Alice Frank",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": false,
+      "local_username": "frank"
+    },
+    {
+      "key": "a10",
+      "actor_url": "https://dup.example/users/pat",
+      "acct": "pat@dup.example",
+      "display_name": "Pat One",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a11",
+      "actor_url": "https://dup.example/actors/pat",
+      "acct": "pat@dup.example",
+      "display_name": "Pat Two",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a12",
+      "actor_url": "https://x.example/users/zed",
+      "acct": "zed@x.example",
+      "display_name": "Zed",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a13",
+      "actor_url": "https://y.example/users/aaa",
+      "acct": "aaa@y.example",
+      "display_name": "zed@x.example Fan",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a14",
+      "actor_url": "https://wide.example/users/w",
+      "acct": "w@wide.example",
+      "display_name": "ＡＬＩＣＥ Wide",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a15",
+      "actor_url": "https://xn--wgv71a.example/users/taro",
+      "acct": "taro@xn--wgv71a.example",
+      "display_name": "日本語太郎",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a16",
+      "actor_url": "https://p.example/users/pc",
+      "acct": "pc@p.example",
+      "display_name": "100%_ club",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a17",
+      "actor_url": "https://p.example/users/abc",
+      "acct": "abc@p.example",
+      "display_name": "abc",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a18",
+      "actor_url": "https://p.example/users/a_c",
+      "acct": "a_c@p.example",
+      "display_name": "a_c",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a19",
+      "actor_url": "https://p.example/users/pp",
+      "acct": "pp@p.example",
+      "display_name": "%percent",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "m1",
+      "actor_url": "https://many.example/users/user1",
+      "acct": "user1@many.example",
+      "display_name": "Many 1",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "m2",
+      "actor_url": "https://many.example/users/user2",
+      "acct": "user2@many.example",
+      "display_name": "Many 2",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "m3",
+      "actor_url": "https://many.example/users/user3",
+      "acct": "user3@many.example",
+      "display_name": "Many 3",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "m4",
+      "actor_url": "https://many.example/users/user4",
+      "acct": "user4@many.example",
+      "display_name": "Many 4",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "m5",
+      "actor_url": "https://many.example/users/user5",
+      "acct": "user5@many.example",
+      "display_name": "Many 5",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "m6",
+      "actor_url": "https://many.example/users/user6",
+      "acct": "user6@many.example",
+      "display_name": "Many 6",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "m7",
+      "actor_url": "https://many.example/users/user7",
+      "acct": "user7@many.example",
+      "display_name": "Many 7",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "a1dup",
+      "actor_url": "https://local.example/users/alice",
+      "acct": "alice@local.example",
+      "display_name": "Alice Liddell (duplicate record)",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": "alice"
+    },
+    {
+      "key": "t2",
+      "actor_url": "https://t.example/users/tie2",
+      "acct": "tie@t.example",
+      "display_name": "Tie Two",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    },
+    {
+      "key": "t1",
+      "actor_url": "https://t.example/users/tie1",
+      "acct": "tie@t.example",
+      "display_name": "Tie One",
+      "icon_url": null,
+      "fetched": true,
+      "publicly_referable": true,
+      "local_username": null
+    }
+  ],
+  "verified_acct_mappings": [
+    {
+      "acct": "alice@remote.example",
+      "actor_url": "https://remote.example/users/alice"
+    },
+    {
+      "acct": "alicia@other.example",
+      "actor_url": "https://other.example/users/alicia"
+    },
+    {
+      "acct": "aaron@y.example",
+      "actor_url": "https://y.example/users/aaron"
+    },
+    {
+      "acct": "carol@muted.example",
+      "actor_url": "https://muted.example/users/carol"
+    },
+    {
+      "acct": "dave@blocked.example",
+      "actor_url": "https://blocked.example/users/dave"
+    },
+    {
+      "acct": "erin@remote.example",
+      "actor_url": "https://remote.example/users/erin"
+    },
+    {
+      "acct": "pat@dup.example",
+      "actor_url": "https://dup.example/users/pat"
+    },
+    {
+      "acct": "pat@dup.example",
+      "actor_url": "https://dup.example/actors/pat"
+    },
+    {
+      "acct": "zed@x.example",
+      "actor_url": "https://x.example/users/zed"
+    },
+    {
+      "acct": "taro@xn--wgv71a.example",
+      "actor_url": "https://xn--wgv71a.example/users/taro"
+    }
+  ],
+  "viewers": {
+    "viewer_a": {
+      "muted_domains": [
+        "muted.example"
+      ],
+      "blocked_domains": [],
+      "muted_actors": [],
+      "blocked_actors": [
+        "https://blocked.example/users/dave"
+      ]
+    },
+    "viewer_b": {
+      "muted_domains": [],
+      "blocked_domains": [],
+      "muted_actors": [],
+      "blocked_actors": []
+    },
+    "viewer_c": {
+      "muted_domains": [],
+      "blocked_domains": [
+        "blocked.example"
+      ],
+      "muted_actors": [
+        "https://remote.example/users/bob"
+      ],
+      "blocked_actors": []
+    }
+  },
+  "suggestion_cases": [
+    {
+      "name": "acct_prefix_then_name_prefix_cut_at_five",
+      "viewer": "viewer_a",
+      "prefix": "ali",
+      "expect": [
+        "https://local.example/users/alice",
+        "https://remote.example/users/alice",
+        "https://other.example/users/alicia",
+        "https://y.example/users/aaron",
+        "https://remote.example/users/bob"
+      ],
+      "note": "6 matches (a1 a2 a4 by acct, a5 a3 a14 by name); only the first five are returned"
+    },
+    {
+      "name": "muted_domain_never_a_candidate",
+      "viewer": "viewer_a",
+      "prefix": "alice m",
+      "expect": []
+    },
+    {
+      "name": "other_profile_without_the_mute_sees_it",
+      "viewer": "viewer_b",
+      "prefix": "alice m",
+      "expect": [
+        "https://muted.example/users/carol"
+      ]
+    },
+    {
+      "name": "blocked_individual_never_a_candidate",
+      "viewer": "viewer_a",
+      "prefix": "alice d",
+      "expect": []
+    },
+    {
+      "name": "other_profile_without_the_block_sees_it",
+      "viewer": "viewer_b",
+      "prefix": "alice d",
+      "expect": [
+        "https://blocked.example/users/dave"
+      ]
+    },
+    {
+      "name": "blocked_domain_never_a_candidate",
+      "viewer": "viewer_c",
+      "prefix": "alice d",
+      "expect": []
+    },
+    {
+      "name": "muted_individual_never_a_candidate",
+      "viewer": "viewer_c",
+      "prefix": "alison",
+      "expect": []
+    },
+    {
+      "name": "without_the_mute_the_same_author_is_a_candidate",
+      "viewer": "viewer_a",
+      "prefix": "alison",
+      "expect": [
+        "https://remote.example/users/bob"
+      ]
+    },
+    {
+      "name": "unfetched_author_is_not_a_candidate",
+      "viewer": "viewer_b",
+      "prefix": "alice e",
+      "expect": []
+    },
+    {
+      "name": "not_publicly_referable_author_is_not_a_candidate",
+      "viewer": "viewer_b",
+      "prefix": "alice f",
+      "expect": []
+    },
+    {
+      "name": "acct_exact_match_ranks_before_a_name_prefix_with_an_earlier_acct",
+      "viewer": "viewer_b",
+      "prefix": "zed@x.example",
+      "expect": [
+        "https://x.example/users/zed",
+        "https://y.example/users/aaa"
+      ]
+    },
+    {
+      "name": "leading_at_is_removed_then_acct_prefix_ranks_before_name_prefix",
+      "viewer": "viewer_b",
+      "prefix": "@zed",
+      "expect": [
+        "https://x.example/users/zed",
+        "https://y.example/users/aaa"
+      ]
+    },
+    {
+      "name": "fullwidth_prefix_matches_after_normalization_and_lowercasing",
+      "viewer": "viewer_a",
+      "prefix": "ＡＬＩＣＥ",
+      "expect": [
+        "https://local.example/users/alice",
+        "https://remote.example/users/alice",
+        "https://y.example/users/aaron",
+        "https://wide.example/users/w"
+      ]
+    },
+    {
+      "name": "lowercase_prefix_gives_the_same_candidates",
+      "viewer": "viewer_a",
+      "prefix": "alice",
+      "expect": [
+        "https://local.example/users/alice",
+        "https://remote.example/users/alice",
+        "https://y.example/users/aaron",
+        "https://wide.example/users/w"
+      ]
+    },
+    {
+      "name": "japanese_name_prefix",
+      "viewer": "viewer_b",
+      "prefix": "日本",
+      "expect": [
+        "https://xn--wgv71a.example/users/taro"
+      ]
+    },
+    {
+      "name": "japanese_substring_is_not_a_match",
+      "viewer": "viewer_b",
+      "prefix": "本語",
+      "expect": []
+    },
+    {
+      "name": "percent_underscore_is_literal_prefix",
+      "viewer": "viewer_b",
+      "prefix": "100%_",
+      "expect": [
+        "https://p.example/users/pc"
+      ]
+    },
+    {
+      "name": "percent_prefix_is_not_a_wildcard",
+      "viewer": "viewer_b",
+      "prefix": "100%",
+      "expect": [
+        "https://p.example/users/pc"
+      ]
+    },
+    {
+      "name": "underscore_after_digits_is_not_a_wildcard",
+      "viewer": "viewer_b",
+      "prefix": "100_",
+      "expect": []
+    },
+    {
+      "name": "lone_percent_matches_only_names_starting_with_it",
+      "viewer": "viewer_b",
+      "prefix": "%",
+      "expect": [
+        "https://p.example/users/pp"
+      ]
+    },
+    {
+      "name": "underscore_is_not_a_single_char_wildcard",
+      "viewer": "viewer_b",
+      "prefix": "a_",
+      "expect": [
+        "https://p.example/users/a_c"
+      ]
+    },
+    {
+      "name": "percent_is_not_a_wildcard_after_a_letter",
+      "viewer": "viewer_b",
+      "prefix": "a%",
+      "expect": []
+    },
+    {
+      "name": "lone_underscore_matches_nothing",
+      "viewer": "viewer_b",
+      "prefix": "_",
+      "expect": []
+    },
+    {
+      "name": "abc_does_not_match_a_c",
+      "viewer": "viewer_b",
+      "prefix": "a_c",
+      "expect": [
+        "https://p.example/users/a_c"
+      ]
+    },
+    {
+      "name": "plain_abc",
+      "viewer": "viewer_b",
+      "prefix": "abc",
+      "expect": [
+        "https://p.example/users/abc"
+      ]
+    },
+    {
+      "name": "at_most_five_of_seven",
+      "viewer": "viewer_a",
+      "prefix": "user",
+      "expect": [
+        "https://many.example/users/user1",
+        "https://many.example/users/user2",
+        "https://many.example/users/user3",
+        "https://many.example/users/user4",
+        "https://many.example/users/user5"
+      ]
+    },
+    {
+      "name": "ties_order_by_actor_url",
+      "viewer": "viewer_b",
+      "prefix": "tie@",
+      "expect": [
+        "https://t.example/users/tie1",
+        "https://t.example/users/tie2"
+      ]
+    },
+    {
+      "name": "duplicate_actor_url_is_listed_once",
+      "viewer": "viewer_b",
+      "prefix": "alice@local",
+      "expect": [
+        "https://local.example/users/alice"
+      ]
+    },
+    {
+      "name": "name_prefix_with_a_space",
+      "viewer": "viewer_b",
+      "prefix": "alice l",
+      "expect": [
+        "https://local.example/users/alice"
+      ]
+    },
+    {
+      "name": "substring_is_not_a_match",
+      "viewer": "viewer_b",
+      "prefix": "lice",
+      "expect": []
+    },
+    {
+      "name": "host_substring_is_not_a_match",
+      "viewer": "viewer_b",
+      "prefix": "remote",
+      "expect": []
+    },
+    {
+      "name": "host_with_dots_after_removing_at_is_not_a_prefix_of_any_acct",
+      "viewer": "viewer_b",
+      "prefix": "@remote.example",
+      "expect": []
+    },
+    {
+      "name": "regular_expression_is_literal",
+      "viewer": "viewer_b",
+      "prefix": "ali.*",
+      "expect": []
+    },
+    {
+      "name": "caret_is_literal",
+      "viewer": "viewer_b",
+      "prefix": "^ali",
+      "expect": []
+    },
+    {
+      "name": "no_match_is_an_empty_200",
+      "viewer": "viewer_b",
+      "prefix": "zzzz",
+      "expect": []
+    }
+  ],
+  "resolve_cases": [
+    {
+      "name": "local_username_without_host",
+      "viewer": "viewer_a",
+      "acct": "alice",
+      "expect": {
+        "ok": "https://local.example/users/alice"
+      }
+    },
+    {
+      "name": "local_username_with_leading_at",
+      "viewer": "viewer_a",
+      "acct": "@alice",
+      "expect": {
+        "ok": "https://local.example/users/alice"
+      }
+    },
+    {
+      "name": "local_acct_with_own_host",
+      "viewer": "viewer_a",
+      "acct": "alice@local.example",
+      "expect": {
+        "ok": "https://local.example/users/alice"
+      }
+    },
+    {
+      "name": "local_acct_with_leading_at_and_own_host",
+      "viewer": "viewer_a",
+      "acct": "@alice@local.example",
+      "expect": {
+        "ok": "https://local.example/users/alice"
+      }
+    },
+    {
+      "name": "own_host_is_normalized_before_comparison",
+      "viewer": "viewer_a",
+      "acct": "alice@LOCAL.Example",
+      "expect": {
+        "ok": "https://local.example/users/alice"
+      }
+    },
+    {
+      "name": "username_is_never_lowercased",
+      "viewer": "viewer_a",
+      "acct": "Alice",
+      "expect": {
+        "err": {
+          "code": "not_found",
+          "field": "acct"
+        }
+      }
+    },
+    {
+      "name": "local_author_not_publicly_referable",
+      "viewer": "viewer_a",
+      "acct": "frank",
+      "expect": {
+        "err": {
+          "code": "not_found",
+          "field": "acct"
+        }
+      }
+    },
+    {
+      "name": "unknown_local_username",
+      "viewer": "viewer_a",
+      "acct": "ghost",
+      "expect": {
+        "err": {
+          "code": "not_found",
+          "field": "acct"
+        }
+      }
+    },
+    {
+      "name": "verified_remote_acct",
+      "viewer": "viewer_a",
+      "acct": "alice@remote.example",
+      "expect": {
+        "ok": "https://remote.example/users/alice"
+      }
+    },
+    {
+      "name": "verified_remote_acct_host_is_normalized",
+      "viewer": "viewer_a",
+      "acct": "@alice@Remote.EXAMPLE",
+      "expect": {
+        "ok": "https://remote.example/users/alice"
+      }
+    },
+    {
+      "name": "remote_username_case_is_not_folded",
+      "viewer": "viewer_a",
+      "acct": "@Alice@remote.example",
+      "expect": {
+        "err": {
+          "code": "not_found",
+          "field": "acct"
+        }
+      }
+    },
+    {
+      "name": "display_only_derived_acct_never_resolves",
+      "viewer": "viewer_a",
+      "acct": "bob@remote.example",
+      "expect": {
+        "err": {
+          "code": "not_found",
+          "field": "acct"
+        }
+      }
+    },
+    {
+      "name": "verified_mapping_of_an_unfetched_author",
+      "viewer": "viewer_a",
+      "acct": "erin@remote.example",
+      "expect": {
+        "err": {
+          "code": "not_found",
+          "field": "acct"
+        }
+      }
+    },
+    {
+      "name": "acct_of_another_host_is_not_guessed",
+      "viewer": "viewer_a",
+      "acct": "alice@other.example",
+      "expect": {
+        "err": {
+          "code": "not_found",
+          "field": "acct"
+        }
+      }
+    },
+    {
+      "name": "two_verified_mappings_are_a_conflict_not_the_first",
+      "viewer": "viewer_a",
+      "acct": "pat@dup.example",
+      "expect": {
+        "err": {
+          "code": "conflict",
+          "field": "acct"
+        }
+      }
+    },
+    {
+      "name": "idn_host_is_matched_in_ascii_form",
+      "viewer": "viewer_a",
+      "acct": "taro@日本.example",
+      "expect": {
+        "ok": "https://xn--wgv71a.example/users/taro"
+      }
+    },
+    {
+      "name": "muted_domain_still_resolves_an_explicit_acct",
+      "viewer": "viewer_a",
+      "acct": "carol@muted.example",
+      "expect": {
+        "ok": "https://muted.example/users/carol"
+      }
+    },
+    {
+      "name": "blocked_individual_still_resolves_an_explicit_acct",
+      "viewer": "viewer_a",
+      "acct": "dave@blocked.example",
+      "expect": {
+        "ok": "https://blocked.example/users/dave"
+      }
+    },
+    {
+      "name": "blocked_domain_still_resolves_an_explicit_acct",
+      "viewer": "viewer_c",
+      "acct": "dave@blocked.example",
+      "expect": {
+        "ok": "https://blocked.example/users/dave"
+      }
+    }
+  ]
+}

@@ -178,6 +178,16 @@ fn route_and_schema_snapshot() -> TestResult {
             ),
             (
                 "GET".into(),
+                "/api/v1/profiles/{profile_nanoid}/search/authors/resolve".into(),
+                "resolveNoteSearchAuthor".into()
+            ),
+            (
+                "GET".into(),
+                "/api/v1/profiles/{profile_nanoid}/search/authors/suggestions".into(),
+                "suggestNoteSearchAuthors".into()
+            ),
+            (
+                "GET".into(),
                 "/api/v1/profiles/{profile_nanoid}/timeline".into(),
                 "getPersonalTimeline".into()
             ),
@@ -251,9 +261,12 @@ fn route_and_schema_snapshot() -> TestResult {
             "ReplyOperation",
             "RepostDomainBlock",
             "RepostOperation",
+            "ResolveAuthorResponse",
             "RevisionConflictBody",
+            "SearchAuthor",
             "SearchNoteBody",
             "SearchedNote",
+            "SuggestAuthorsResponse",
             "TimelineResponse",
             "UpdateQuickReactionSettings",
         ]
@@ -271,7 +284,10 @@ fn route_and_schema_snapshot() -> TestResult {
             "emoji_usage_not_allowed",
             "internal",
             "not_implemented",
-            "search_timeout"
+            "search_timeout",
+            "rate_limited",
+            "author_lookup_timeout",
+            "author_lookup_unavailable"
         ])
     );
     assert_eq!(
