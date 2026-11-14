@@ -1,0 +1,99 @@
+{
+  "name": "remote_reaction_only_own_chip_disappears_after_delete",
+  "description": "The Profile is the only one carrying the external chip: DELETE removes the chip, so pressing the same external emoji again is 422 emoji_usage_not_allowed and the Profile stays unreacted.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available",
+        "image_state": "present",
+        "usage": "anywhere"
+      },
+      "partycat@remote.example": {
+        "shortcode": "partycat",
+        "image_url": "https://remote.example/emoji/partycat.png",
+        "availability": "available",
+        "origin": "remote.example",
+        "image_state": "present",
+        "usage": "existing_reaction_only"
+      },
+      "partycat@other.example": {
+        "shortcode": "partycat",
+        "image_url": "https://other.example/emoji/partycat.png",
+        "availability": "available",
+        "origin": "other.example",
+        "image_state": "present",
+        "usage": "existing_reaction_only"
+      },
+      "ghostcat@remote.example": {
+        "shortcode": "ghostcat",
+        "availability": "available",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+      },
+      "goneblob@remote.example": {
+        "shortcode": "goneblob",
+        "availability": "unavailable",
+        "reason": "deleted",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+      }
+    },
+    "settings": {
+      "revision": 0,
+      "favorites": []
+    },
+    "reaction": {
+      "type": "custom",
+      "id": "partycat@remote.example"
+    },
+    "chips": []
+  },
+  "steps": [
+    {
+      "operation": "deleteNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": null
+        }
+      }
+    },
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "custom",
+          "id": "partycat@remote.example"
+        }
+      },
+      "expect": {
+        "status": 422,
+        "body": {
+          "code": "emoji_usage_not_allowed",
+          "message": "an external emoji can only be used from an existing reaction",
+          "details": [
+            {
+              "field": "/emoji",
+              "message": "an external emoji can only be used from an existing reaction"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "getNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": null
+        }
+      }
+    }
+  ]
+}

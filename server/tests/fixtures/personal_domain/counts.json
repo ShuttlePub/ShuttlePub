@@ -14,7 +14,18 @@
           "type": "custom",
           "id": "blobcat"
         },
-        "count": 2
+        "count": 2,
+        "view": {
+          "emoji": {
+            "type": "custom",
+            "id": "blobcat"
+          },
+          "availability": "available",
+          "shortcode": "blobcat",
+          "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+          "image_state": "present",
+          "usage": "anywhere"
+        }
       }
     ]
   },
@@ -33,7 +44,18 @@
           "type": "custom",
           "id": "blobcat"
         },
-        "count": 2
+        "count": 2,
+        "view": {
+          "emoji": {
+            "type": "custom",
+            "id": "blobcat"
+          },
+          "availability": "available",
+          "shortcode": "blobcat",
+          "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+          "image_state": "present",
+          "usage": "anywhere"
+        }
       }
     ]
   },
@@ -88,7 +110,18 @@
           "type": "custom",
           "id": "blobcat"
         },
-        "count": 2
+        "count": 2,
+        "view": {
+          "emoji": {
+            "type": "custom",
+            "id": "blobcat"
+          },
+          "availability": "available",
+          "shortcode": "blobcat",
+          "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+          "image_state": "present",
+          "usage": "anywhere"
+        }
       }
     ]
   }

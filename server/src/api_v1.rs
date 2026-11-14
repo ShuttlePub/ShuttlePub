@@ -39,6 +39,10 @@ pub enum ErrorCode {
     RevisionConflict,
     /// An emoji needed by the request is unavailable (deleted or disabled).
     EmojiUnavailable,
+    /// The emoji exists and is available but may not be used this way: an
+    /// external (other server) custom emoji is only usable by pressing an
+    /// existing reaction chip of the Note (`usage: existing_reaction_only`).
+    EmojiUsageNotAllowed,
     /// The server failed unexpectedly.
     Internal,
     /// The route is part of the API contract but has no implementation yet.
@@ -54,7 +58,7 @@ impl ErrorCode {
             Self::Forbidden => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Conflict | Self::RevisionConflict => StatusCode::CONFLICT,
-            Self::EmojiUnavailable => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::EmojiUnavailable | Self::EmojiUsageNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
             Self::NotImplemented => StatusCode::NOT_IMPLEMENTED,
         }

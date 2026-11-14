@@ -367,6 +367,14 @@
         ],
         "type": "string"
       },
+      "EmojiImageState": {
+        "description": "Whether the image of a custom emoji can be shown. Independent of\n[`EmojiAvailability`].",
+        "enum": [
+          "present",
+          "missing"
+        ],
+        "type": "string"
+      },
       "EmojiReactionCount": {
         "additionalProperties": false,
         "properties": {
@@ -376,7 +384,19 @@
             "type": "integer"
           },
           "emoji": {
-            "$ref": "#/components/schemas/EmojiRef"
+            "$ref": "#/components/schemas/EmojiRef",
+            "description": "Identity of the chip's emoji. Two chips are the same chip exactly when\ntheir `emoji` are equal."
+          },
+          "view": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EmojiView",
+                "description": "Display data of the chip's emoji (D09). The server always sends it for\na custom emoji chip, so `view.origin` tells the UI, per chip, whether the\nemoji is external (globe mark) and tells same-named emoji of different\nservers apart; `view.emoji` equals `emoji`. A Unicode chip may omit it."
+              }
+            ]
           }
         },
         "required": [
@@ -476,6 +496,14 @@
         ],
         "type": "string"
       },
+      "EmojiUsage": {
+        "description": "Where a custom emoji may be used.",
+        "enum": [
+          "existing_reaction_only",
+          "anywhere"
+        ],
+        "type": "string"
+      },
       "EmojiView": {
         "description": "An emoji as returned by the server: identity plus availability and display data.",
         "properties": {
@@ -487,11 +515,33 @@
             "$ref": "#/components/schemas/EmojiRef",
             "description": "Identity of the emoji."
           },
+          "image_state": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EmojiImageState",
+                "description": "Whether the image can be shown; independent of `availability`. Present\nfor custom emoji, absent for Unicode emoji. `present` goes with\n`image_url`, `missing` means show `:shortcode:`."
+              }
+            ]
+          },
           "image_url": {
             "description": "Image of a custom emoji when one is still served; absent for Unicode\nemoji and for deleted custom emoji.",
             "type": [
               "string",
               "null"
+            ]
+          },
+          "origin": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ControlDomain",
+                "description": "Originating domain of an external custom emoji (same canonical host\nform as the E8 domain controls). Absent for Unicode emoji and for custom\nemoji of this server, so its presence is the external mark (globe)."
+              }
             ]
           },
           "shortcode": {
@@ -509,6 +559,17 @@
               {
                 "$ref": "#/components/schemas/EmojiUnavailableReason",
                 "description": "Present only when `availability` is `unavailable`."
+              }
+            ]
+          },
+          "usage": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EmojiUsage",
+                "description": "Where the emoji may be used. Present for custom emoji (an external one\nis `existing_reaction_only`); absent means `anywhere` (Unicode emoji)."
               }
             ]
           }
@@ -565,6 +626,7 @@
           "conflict",
           "revision_conflict",
           "emoji_unavailable",
+          "emoji_usage_not_allowed",
           "internal",
           "not_implemented"
         ],
@@ -1023,7 +1085,7 @@
         "properties": {
           "emoji": {
             "$ref": "#/components/schemas/EmojiRef",
-            "description": "The emoji to select; replaces any previous selection."
+            "description": "The emoji to select; replaces any previous selection, except that an\nexternal emoji (`usage: existing_reaction_only`) never replaces: it is\nrefused with `409` while another reaction is selected."
           }
         },
         "required": [
@@ -1111,7 +1173,7 @@
               },
               {
                 "$ref": "#/components/schemas/EmojiView",
-                "description": "The selected emoji, or `null` when the Profile has not reacted. The\nemoji may be `unavailable`; it can still be removed."
+                "description": "The selected emoji, or `null` when the Profile has not reacted. The\nemoji may be `unavailable`, or external (`origin` set); it can still be\nremoved."
               }
             ]
           },
@@ -1840,7 +1902,7 @@
         ]
       },
       "put": {
-        "description": "Idempotent: repeating the same emoji returns `200` with the same state. A\ndifferent emoji replaces the previous one (1 Profile, 1 Note, 1 reaction).\nAvailability is checked first: an unavailable emoji is always `422`, even\nwhen it is the emoji already selected (the selection then stays, and can be\nremoved with `DELETE`).",
+        "description": "Idempotent: repeating the same emoji returns `200` with the same state. A\ndifferent emoji replaces the previous one (1 Profile, 1 Note, 1 reaction),\nexcept for external emoji (`usage: existing_reaction_only`, see the module\ndocs). Rules, first match answers: 1 an unavailable emoji is `422\nemoji_unavailable`, even when it is the emoji already selected (the\nselection then stays and can be removed with `DELETE`); 2 the emoji equals\nthe current selection: `200` no-op; 3 external emoji without a chip of the\nsame emoji on the Note: `422 emoji_usage_not_allowed`; 4 external emoji while\nthe Profile reacted with another emoji: `409 conflict` (no direct\nreplacement, the current reaction stays); 5 select: `200`.",
         "operationId": "putNoteReaction",
         "parameters": [
           {
@@ -1924,6 +1986,16 @@
             },
             "description": "Unknown Profile or Note (not_found)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "An external emoji (usage existing_reaction_only) was requested while the Profile already reacted with another emoji (conflict); the current reaction stays, DELETE it first"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1932,7 +2004,7 @@
                 }
               }
             },
-            "description": "The emoji is unavailable (emoji_unavailable), checked before the repeat no-op rule; the current reaction stays"
+            "description": "The emoji is unavailable (emoji_unavailable, checked before the repeat no-op rule), or an external emoji has no chip on the Note (emoji_usage_not_allowed, checked after it); the current reaction stays"
           },
           "501": {
             "content": {
@@ -2486,7 +2558,7 @@
                 }
               }
             },
-            "description": "A newly added emoji is unavailable (emoji_unavailable); favorites already stored may stay (details point at the offending /favorites/{index})"
+            "description": "A newly added emoji is unavailable (emoji_unavailable), or is an external emoji that may not be a favorite (emoji_usage_not_allowed, usage existing_reaction_only); favorites already stored may stay (details point at the offending /favorites/{index}). Unavailable is reported before usage"
           },
           "501": {
             "content": {

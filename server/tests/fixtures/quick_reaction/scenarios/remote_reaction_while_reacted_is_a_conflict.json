@@ -1,0 +1,137 @@
+{
+  "name": "remote_reaction_while_reacted_is_a_conflict",
+  "description": "An external emoji is never a direct replacement: 409 while the Profile reacted with another emoji, the current reaction stays; after DELETE it succeeds.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available",
+        "image_state": "present",
+        "usage": "anywhere"
+      },
+      "partycat@remote.example": {
+        "shortcode": "partycat",
+        "image_url": "https://remote.example/emoji/partycat.png",
+        "availability": "available",
+        "origin": "remote.example",
+        "image_state": "present",
+        "usage": "existing_reaction_only"
+      },
+      "partycat@other.example": {
+        "shortcode": "partycat",
+        "image_url": "https://other.example/emoji/partycat.png",
+        "availability": "available",
+        "origin": "other.example",
+        "image_state": "present",
+        "usage": "existing_reaction_only"
+      },
+      "ghostcat@remote.example": {
+        "shortcode": "ghostcat",
+        "availability": "available",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+      },
+      "goneblob@remote.example": {
+        "shortcode": "goneblob",
+        "availability": "unavailable",
+        "reason": "deleted",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+      }
+    },
+    "settings": {
+      "revision": 0,
+      "favorites": []
+    },
+    "reaction": {
+      "type": "unicode",
+      "value": "👍"
+    },
+    "chips": [
+      {
+        "type": "custom",
+        "id": "partycat@remote.example"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "custom",
+          "id": "partycat@remote.example"
+        }
+      },
+      "expect": {
+        "status": 409,
+        "body": {
+          "code": "conflict",
+          "message": "remove the current reaction before reacting with an external emoji",
+          "details": [
+            {
+              "field": "/emoji",
+              "message": "remove the current reaction before reacting with an external emoji"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "getNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "unicode",
+              "value": "👍"
+            },
+            "availability": "available"
+          }
+        }
+      }
+    },
+    {
+      "operation": "deleteNoteReaction",
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": null
+        }
+      }
+    },
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "custom",
+          "id": "partycat@remote.example"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "note_id": "0f0a5d3e-8f3c-4c53-9b64-3f5f8f0f2a11",
+          "emoji": {
+            "emoji": {
+              "type": "custom",
+              "id": "partycat@remote.example"
+            },
+            "availability": "available",
+            "shortcode": "partycat",
+            "image_url": "https://remote.example/emoji/partycat.png",
+            "origin": "remote.example",
+            "image_state": "present",
+            "usage": "existing_reaction_only"
+          }
+        }
+      }
+    }
+  ]
+}

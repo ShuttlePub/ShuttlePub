@@ -1,0 +1,140 @@
+{
+  "name": "remote_emoji_is_never_a_favorite",
+  "description": "An external emoji is refused as a favorite (422 emoji_usage_not_allowed at its /favorites/{index}); settings never list it; a same-server custom emoji is accepted.",
+  "setup": {
+    "emoji": {
+      "blobcat": {
+        "shortcode": "blobcat",
+        "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+        "availability": "available",
+        "image_state": "present",
+        "usage": "anywhere"
+      },
+      "partycat@remote.example": {
+        "shortcode": "partycat",
+        "image_url": "https://remote.example/emoji/partycat.png",
+        "availability": "available",
+        "origin": "remote.example",
+        "image_state": "present",
+        "usage": "existing_reaction_only"
+      },
+      "partycat@other.example": {
+        "shortcode": "partycat",
+        "image_url": "https://other.example/emoji/partycat.png",
+        "availability": "available",
+        "origin": "other.example",
+        "image_state": "present",
+        "usage": "existing_reaction_only"
+      },
+      "ghostcat@remote.example": {
+        "shortcode": "ghostcat",
+        "availability": "available",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+      },
+      "goneblob@remote.example": {
+        "shortcode": "goneblob",
+        "availability": "unavailable",
+        "reason": "deleted",
+        "origin": "remote.example",
+        "image_state": "missing",
+        "usage": "existing_reaction_only"
+      }
+    },
+    "settings": {
+      "revision": 0,
+      "favorites": []
+    },
+    "reaction": null,
+    "chips": [
+      {
+        "type": "custom",
+        "id": "partycat@remote.example"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 0,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "👍"
+          },
+          {
+            "type": "custom",
+            "id": "partycat@remote.example"
+          }
+        ]
+      },
+      "expect": {
+        "status": 422,
+        "body": {
+          "code": "emoji_usage_not_allowed",
+          "message": "an external emoji can only be used from an existing reaction",
+          "details": [
+            {
+              "field": "/favorites/1",
+              "message": "an external emoji can only be used from an existing reaction"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "getQuickReactionSettings",
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 0,
+          "favorites": []
+        }
+      }
+    },
+    {
+      "operation": "putQuickReactionSettings",
+      "body": {
+        "expected_revision": 0,
+        "favorites": [
+          {
+            "type": "unicode",
+            "value": "👍"
+          },
+          {
+            "type": "custom",
+            "id": "blobcat"
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "body": {
+          "revision": 1,
+          "favorites": [
+            {
+              "emoji": {
+                "type": "unicode",
+                "value": "👍"
+              },
+              "availability": "available"
+            },
+            {
+              "emoji": {
+                "type": "custom",
+                "id": "blobcat"
+              },
+              "availability": "available",
+              "shortcode": "blobcat",
+              "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+              "image_state": "present",
+              "usage": "anywhere"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

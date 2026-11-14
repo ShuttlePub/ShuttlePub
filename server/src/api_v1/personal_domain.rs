@@ -13,7 +13,7 @@ use utoipa::ToSchema;
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
-use super::quick_reaction::{EmojiRef, ProfileNanoid};
+use super::quick_reaction::{EmojiRef, EmojiView, ProfileNanoid};
 use super::{ApiV1Error, ErrorBody, PageParams};
 
 /// E8 DomainControlMode, verbatim: mute suppresses display only; block also
@@ -219,8 +219,33 @@ pub struct PostOperationAvailability {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EmojiReactionCount {
+    /// Identity of the chip's emoji. Two chips are the same chip exactly when
+    /// their `emoji` are equal.
     pub emoji: EmojiRef,
     pub count: u64,
+    /// Display data of the chip's emoji (D09). The server always sends it for
+    /// a custom emoji chip, so `view.origin` tells the UI, per chip, whether the
+    /// emoji is external (globe mark) and tells same-named emoji of different
+    /// servers apart; `view.emoji` equals `emoji`. A Unicode chip may omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub view: Option<EmojiView>,
+}
+
+impl EmojiReactionCount {
+    /// The rules every chip the server sends obeys: `view` agrees with `emoji`
+    /// and is present for custom emoji.
+    pub fn check_consistency(&self) -> Result<(), String> {
+        match &self.view {
+            Some(view) if view.emoji != self.emoji => {
+                Err("view.emoji must equal the chip's emoji".into())
+            }
+            Some(view) => view.check_consistency(),
+            None if matches!(self.emoji, EmojiRef::Custom { .. }) => {
+                Err("a custom emoji chip must carry view".into())
+            }
+            None => Ok(()),
+        }
+    }
 }
 
 /// Accepted historical likes/emoji remain counted after block; rejected new

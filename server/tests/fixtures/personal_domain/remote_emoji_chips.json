@@ -1,0 +1,384 @@
+{
+  "description": "Reaction chips of a Note (S8 ReactionCounts) with external custom emoji (D09). view.origin marks a chip as external (globe mark); same-named emoji of different servers are different chips.",
+  "valid": {
+    "mixed_local_and_external": {
+      "likes": 4,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "👍"
+          },
+          "count": 3
+        },
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "blobcat"
+          },
+          "count": 2,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "blobcat"
+            },
+            "availability": "available",
+            "shortcode": "blobcat",
+            "image_url": "https://emoji.shuttlepub.example/blobcat.png",
+            "image_state": "present",
+            "usage": "anywhere"
+          }
+        },
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "partycat@remote.example"
+          },
+          "count": 2,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "partycat@remote.example"
+            },
+            "availability": "available",
+            "shortcode": "partycat",
+            "image_url": "https://remote.example/emoji/partycat.png",
+            "origin": "remote.example",
+            "image_state": "present",
+            "usage": "existing_reaction_only"
+          }
+        }
+      ]
+    },
+    "same_name_different_origin": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "partycat@remote.example"
+          },
+          "count": 5,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "partycat@remote.example"
+            },
+            "availability": "available",
+            "shortcode": "partycat",
+            "image_url": "https://remote.example/emoji/partycat.png",
+            "origin": "remote.example",
+            "image_state": "present",
+            "usage": "existing_reaction_only"
+          }
+        },
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "partycat@other.example"
+          },
+          "count": 1,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "partycat@other.example"
+            },
+            "availability": "available",
+            "shortcode": "partycat",
+            "image_url": "https://other.example/emoji/partycat.png",
+            "origin": "other.example",
+            "image_state": "present",
+            "usage": "existing_reaction_only"
+          }
+        },
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "partycat"
+          },
+          "count": 1,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "partycat"
+            },
+            "availability": "available",
+            "shortcode": "partycat",
+            "image_url": "https://emoji.shuttlepub.example/partycat.png",
+            "image_state": "present",
+            "usage": "anywhere"
+          }
+        }
+      ]
+    },
+    "external_image_missing_still_selectable": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "ghostcat@remote.example"
+          },
+          "count": 1,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "ghostcat@remote.example"
+            },
+            "availability": "available",
+            "shortcode": "ghostcat",
+            "origin": "remote.example",
+            "image_state": "missing",
+            "usage": "existing_reaction_only"
+          }
+        }
+      ]
+    },
+    "external_deleted_at_origin": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "goneblob@remote.example"
+          },
+          "count": 2,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "goneblob@remote.example"
+            },
+            "availability": "unavailable",
+            "unavailable_reason": "deleted",
+            "shortcode": "goneblob",
+            "origin": "remote.example",
+            "image_state": "missing",
+            "usage": "existing_reaction_only"
+          }
+        }
+      ]
+    },
+    "legacy_chip_without_view_for_unicode": {
+      "likes": 1,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "🎉"
+          },
+          "count": 1
+        }
+      ]
+    }
+  },
+  "external_ids": {
+    "mixed_local_and_external": [
+      "partycat@remote.example"
+    ],
+    "same_name_different_origin": [
+      "partycat@remote.example",
+      "partycat@other.example"
+    ],
+    "external_image_missing_still_selectable": [
+      "ghostcat@remote.example"
+    ],
+    "external_deleted_at_origin": [
+      "goneblob@remote.example"
+    ],
+    "legacy_chip_without_view_for_unicode": []
+  },
+  "schema_invalid": {
+    "origin_not_a_string": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "partycat@remote.example"
+          },
+          "count": 1,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "partycat@remote.example"
+            },
+            "availability": "available",
+            "shortcode": "partycat",
+            "image_url": "https://remote.example/emoji/partycat.png",
+            "origin": 5,
+            "image_state": "present",
+            "usage": "existing_reaction_only"
+          }
+        }
+      ]
+    },
+    "unknown_usage": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "partycat@remote.example"
+          },
+          "count": 1,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "partycat@remote.example"
+            },
+            "availability": "available",
+            "shortcode": "partycat",
+            "image_url": "https://remote.example/emoji/partycat.png",
+            "origin": "remote.example",
+            "image_state": "present",
+            "usage": "everywhere"
+          }
+        }
+      ]
+    },
+    "unknown_image_state": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "partycat@remote.example"
+          },
+          "count": 1,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "partycat@remote.example"
+            },
+            "availability": "available",
+            "shortcode": "partycat",
+            "image_url": "https://remote.example/emoji/partycat.png",
+            "origin": "remote.example",
+            "image_state": "broken",
+            "usage": "existing_reaction_only"
+          }
+        }
+      ]
+    },
+    "unknown_chip_field": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "unicode",
+            "value": "👍"
+          },
+          "count": 1,
+          "origin": "remote.example"
+        }
+      ]
+    }
+  },
+  "schema_valid_but_inconsistent": {
+    "custom_chip_without_view": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "partycat@remote.example"
+          },
+          "count": 1
+        }
+      ]
+    },
+    "view_for_another_emoji": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "partycat@remote.example"
+          },
+          "count": 1,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "partycat@other.example"
+            },
+            "availability": "available",
+            "shortcode": "partycat",
+            "image_url": "https://other.example/emoji/partycat.png",
+            "origin": "other.example",
+            "image_state": "present",
+            "usage": "existing_reaction_only"
+          }
+        }
+      ]
+    },
+    "external_but_usage_anywhere": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "partycat@remote.example"
+          },
+          "count": 1,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "partycat@remote.example"
+            },
+            "availability": "available",
+            "shortcode": "partycat",
+            "image_url": "https://remote.example/emoji/partycat.png",
+            "origin": "remote.example",
+            "image_state": "present",
+            "usage": "anywhere"
+          }
+        }
+      ]
+    },
+    "image_present_without_url": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "partycat@remote.example"
+          },
+          "count": 1,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "partycat@remote.example"
+            },
+            "availability": "available",
+            "shortcode": "partycat",
+            "origin": "remote.example",
+            "image_state": "present",
+            "usage": "existing_reaction_only"
+          }
+        }
+      ]
+    },
+    "image_missing_without_shortcode": {
+      "likes": 0,
+      "emoji": [
+        {
+          "emoji": {
+            "type": "custom",
+            "id": "ghostcat@remote.example"
+          },
+          "count": 1,
+          "view": {
+            "emoji": {
+              "type": "custom",
+              "id": "ghostcat@remote.example"
+            },
+            "availability": "available",
+            "origin": "remote.example",
+            "image_state": "missing",
+            "usage": "existing_reaction_only"
+          }
+        }
+      ]
+    }
+  }
+}
