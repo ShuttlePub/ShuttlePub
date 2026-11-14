@@ -34,6 +34,7 @@ CLAUDE.md
 !.claude/settings.json
 
 # debug files
+.env
 *.db
 *.db-shm
 *.db-wal
