@@ -35,8 +35,7 @@
       },
       "goneblob@remote.example": {
         "shortcode": "goneblob",
-        "availability": "unavailable",
-        "reason": "deleted",
+        "availability": "available",
         "origin": "remote.example",
         "image_state": "missing",
         "usage": "existing_reaction_only"

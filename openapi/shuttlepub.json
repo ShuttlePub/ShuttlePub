@@ -486,7 +486,7 @@
         "properties": {
           "availability": {
             "$ref": "#/components/schemas/EmojiAvailability",
-            "description": "Current availability. Unicode emoji are always `available`."
+            "description": "Current availability. Unicode emoji are always `available`. An external\nemoji is `unavailable` only when this server disabled it; deletion at\nthe origin is `image_state: missing` while it stays `available`."
           },
           "emoji": {
             "$ref": "#/components/schemas/EmojiRef",
@@ -535,7 +535,7 @@
               },
               {
                 "$ref": "#/components/schemas/EmojiUnavailableReason",
-                "description": "Present only when `availability` is `unavailable`."
+                "description": "Present only when `availability` is `unavailable`. Never `deleted` for an\nexternal emoji."
               }
             ]
           },
@@ -2190,7 +2190,7 @@
         ]
       },
       "put": {
-        "description": "Idempotent: repeating the same emoji returns `200` with the same state. A\ndifferent emoji replaces the previous one (1 Profile, 1 Note, 1 reaction),\nexcept for external emoji (`usage: existing_reaction_only`, see the module\ndocs). Rules, first match answers: 1 an unavailable emoji is `422\nemoji_unavailable`, even when it is the emoji already selected (the\nselection then stays and can be removed with `DELETE`); 2 the emoji equals\nthe current selection: `200` no-op; 3 external emoji without a chip of the\nsame emoji on the Note: `422 emoji_usage_not_allowed`; 4 external emoji while\nthe Profile reacted with another emoji: `409 conflict` (no direct\nreplacement, the current reaction stays); 5 select: `200`.",
+        "description": "Idempotent: repeating the same emoji returns `200` with the same state. A\ndifferent emoji replaces the previous one (1 Profile, 1 Note, 1 reaction),\nexcept for external emoji (`usage: existing_reaction_only`, see the module\ndocs). Rules, first match answers: 1 an unavailable emoji is `422\nemoji_unavailable` (a deleted or disabled custom emoji of this server, or an\nexternal emoji this server disabled; an external emoji deleted at its origin\nis still available), even when it is the emoji already selected (the\nselection then stays and can be removed with `DELETE`); 2 the emoji equals\nthe current selection: `200` no-op; 3 external emoji without a chip of the\nsame emoji on the Note: `422 emoji_usage_not_allowed` (also when it was\ndeleted at its origin; with the chip still there it is selected with `200`\nand shown as `:name:`); 4 external emoji while\nthe Profile reacted with another emoji: `409 conflict` (no direct\nreplacement, the current reaction stays); 5 select: `200`.",
         "operationId": "putNoteReaction",
         "parameters": [
           {
@@ -2292,7 +2292,7 @@
                 }
               }
             },
-            "description": "The emoji is unavailable (emoji_unavailable, checked before the repeat no-op rule), or an external emoji has no chip on the Note (emoji_usage_not_allowed, checked after it); the current reaction stays"
+            "description": "The emoji is unavailable (emoji_unavailable, checked before the repeat no-op rule; not for an external emoji merely deleted at its origin), or an external emoji has no chip on the Note (emoji_usage_not_allowed, checked after it, also for one deleted at its origin); the current reaction stays"
           },
           "501": {
             "content": {

@@ -1,6 +1,6 @@
 {
   "name": "remote_reaction_checks_availability_first",
-  "description": "Order of checks: availability (422 emoji_unavailable) comes before the repeat no-op and before the chip rule; DELETE never depends on it.",
+  "description": "Order of checks: availability (422 emoji_unavailable) comes before the repeat no-op and before the chip rule; DELETE never depends on it. An external emoji this server disabled is unavailable; one deleted at its origin (goneblob) is not: it passes availability and meets the chip rule instead.",
   "setup": {
     "emoji": {
       "blobcat": {
@@ -35,10 +35,18 @@
       },
       "goneblob@remote.example": {
         "shortcode": "goneblob",
-        "availability": "unavailable",
-        "reason": "deleted",
+        "availability": "available",
         "origin": "remote.example",
         "image_state": "missing",
+        "usage": "existing_reaction_only"
+      },
+      "offblob@remote.example": {
+        "shortcode": "offblob",
+        "image_url": "https://remote.example/emoji/offblob.png",
+        "availability": "unavailable",
+        "reason": "disabled",
+        "origin": "remote.example",
+        "image_state": "present",
         "usage": "existing_reaction_only"
       }
     },
@@ -48,7 +56,7 @@
     },
     "reaction": {
       "type": "custom",
-      "id": "goneblob@remote.example"
+      "id": "offblob@remote.example"
     },
     "chips": []
   },
@@ -58,7 +66,7 @@
       "body": {
         "emoji": {
           "type": "custom",
-          "id": "goneblob@remote.example"
+          "id": "offblob@remote.example"
         }
       },
       "expect": {
@@ -84,13 +92,14 @@
           "emoji": {
             "emoji": {
               "type": "custom",
-              "id": "goneblob@remote.example"
+              "id": "offblob@remote.example"
             },
             "availability": "unavailable",
-            "unavailable_reason": "deleted",
-            "shortcode": "goneblob",
+            "unavailable_reason": "disabled",
+            "shortcode": "offblob",
+            "image_url": "https://remote.example/emoji/offblob.png",
             "origin": "remote.example",
-            "image_state": "missing",
+            "image_state": "present",
             "usage": "existing_reaction_only"
           }
         }
@@ -111,7 +120,7 @@
       "body": {
         "emoji": {
           "type": "custom",
-          "id": "goneblob@remote.example"
+          "id": "offblob@remote.example"
         }
       },
       "expect": {
@@ -123,6 +132,28 @@
             {
               "field": "/emoji",
               "message": "emoji is unavailable"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "operation": "putNoteReaction",
+      "body": {
+        "emoji": {
+          "type": "custom",
+          "id": "goneblob@remote.example"
+        }
+      },
+      "expect": {
+        "status": 422,
+        "body": {
+          "code": "emoji_usage_not_allowed",
+          "message": "an external emoji can only be used from an existing reaction",
+          "details": [
+            {
+              "field": "/emoji",
+              "message": "an external emoji can only be used from an existing reaction"
             }
           ]
         }
