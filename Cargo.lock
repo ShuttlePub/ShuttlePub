@@ -1794,6 +1794,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "http-body-util",
+ "icu_normalizer",
  "jsonschema",
  "reqwest",
  "serde",

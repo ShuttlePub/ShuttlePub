@@ -16,7 +16,7 @@ use utoipa::{
 };
 use utoipa_axum::router::OpenApiRouter;
 
-use crate::api_v1::{self, personal_domain, quick_reaction};
+use crate::api_v1::{self, personal_domain, quick_reaction, search_author};
 
 /// Checked-in location of the generated document, relative to the workspace root.
 pub const GENERATED_PATH: &str = "openapi/shuttlepub.json";
@@ -56,11 +56,15 @@ pub const GENERATED_PATH: &str = "openapi/shuttlepub.json";
         personal_domain::InboundRepostRejection,
         personal_domain::InboundLikeRejection,
         personal_domain::InboundEmojiReactionRejection,
+        search_author::ResolveAuthorResponse,
+        search_author::SearchAuthor,
+        search_author::SuggestAuthorsResponse,
     )),
     tags(
         (name = "meta", description = "Service level information"),
         (name = "quick-reaction", description = "Quick reaction favourites per Profile and the reaction of a Profile on a Note. Contract only: stored nowhere, every route answers 501."),
-        (name = "personal-domain-content", description = "S8 personal domain display and post refusal contracts. E8 owns policy; no filtering or enforcement is implemented. All routes answer 501. Inbound DTOs are internal decision contracts, not an inbox.")
+        (name = "personal-domain-content", description = "S8 personal domain display and post refusal contracts. E8 owns policy; no filtering or enforcement is implemented. All routes answer 501. Inbound DTOs are internal decision contracts, not an inbox."),
+        (name = "note-search-author", description = "D04 author lookup for the search UI's from:@acct input: resolve one acct, suggest up to five authors. Contract only: every route answers 501. The server never queries a remote server (no WebFinger, no actor fetch).")
     )
 )]
 pub struct ApiDoc;

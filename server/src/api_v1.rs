@@ -7,6 +7,7 @@
 
 pub mod personal_domain;
 pub mod quick_reaction;
+pub mod search_author;
 
 use axum::{
     Json,
@@ -50,6 +51,13 @@ pub enum ErrorCode {
     /// A search hit its response time limit without any resumable progress; with
     /// progress the answer is a partial 200 instead (`page.truncated`).
     SearchTimeout,
+    /// Too many requests; the response carries a `Retry-After` header (seconds).
+    RateLimited,
+    /// The internal author lookup (`resolveNoteSearchAuthor` / `suggestNoteSearchAuthors`, never
+    /// WebFinger) exceeded its response time limit. Distinct from `SearchTimeout`.
+    AuthorLookupTimeout,
+    /// The internal author lookup is temporarily unavailable. Distinct from `SearchTimeout`.
+    AuthorLookupUnavailable,
 }
 
 impl ErrorCode {
@@ -64,7 +72,10 @@ impl ErrorCode {
             Self::EmojiUnavailable | Self::EmojiUsageNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
             Self::NotImplemented => StatusCode::NOT_IMPLEMENTED,
-            Self::SearchTimeout => StatusCode::SERVICE_UNAVAILABLE,
+            Self::SearchTimeout | Self::AuthorLookupTimeout | Self::AuthorLookupUnavailable => {
+                StatusCode::SERVICE_UNAVAILABLE
+            }
+            Self::RateLimited => StatusCode::TOO_MANY_REQUESTS,
         }
     }
 }
@@ -179,4 +190,5 @@ pub fn router() -> OpenApiRouter {
         .routes(routes!(get_status))
         .merge(quick_reaction::router())
         .merge(personal_domain::router())
+        .merge(search_author::router())
 }

@@ -137,12 +137,13 @@ the route still answers 501.
   `https://:443/users/alice` and `https:///users/alice` are therefore `400` and never reach the 404
   actor lookup. The `ActorUrl` `pattern` is the syntactic prefilter of this rule; the parser may
   reject more (for example invalid IDNA), always as `400`.
-- **Acct resolution is not part of this contract.** The API never accepts an acct or the UI's
+- **Acct resolution is not part of this contract** (it is the separate
+  `note-search-author-lookup-api-contract` unit, see `note-search-author-lookup-contract.md`: `resolveNoteSearchAuthor` / `suggestNoteSearchAuthors`). The API never accepts an acct or the UI's
   `from:@user` syntax (it is a 400). Turning `from:@user` into an actor ID URL is the BFF/UI's
   job. No existing API resolves a remote acct to an actor ID (Emumet's WebFinger only describes its
-  own local accounts), so until a separate resolver contract exists the BFF/UI resolves it itself,
-  and an acct it cannot resolve is **not searched**: the UI reports the error and never calls this
-  route with a guess.
+  own local accounts), so the BFF/UI resolves it through `resolveNoteSearchAuthor` (contract only,
+  its implementation is a follow-up unit), and an acct it cannot resolve is **not searched**: the UI
+  reports the error and never calls this route with a guess.
 - **Meaning.** `q` is a literal substring of the note's body **and** its content warning; the
   text of a quoted or replied-to note is not searched. `%`, `_` and backslash are plain characters.
   Results are newest first (`created_at` descending compared as the time instant it denotes, so fractional seconds and offsets are never ordered as text, then `note_id` descending) and only notes the
