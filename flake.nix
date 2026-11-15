@@ -4,6 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    intent-system-flake.url = "github:turtton/intent-system-flake";
     takt = {
       url = "github:nrslib/takt";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -18,13 +19,21 @@
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, takt, codex-cli-nix, claude-code-nix }:
+  outputs = { self, nixpkgs, flake-utils, takt, codex-cli-nix, claude-code-nix, intent-system-flake }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
           inherit system;
           config.allowUnfree = true;
         };
+
+        # intent-cli は別の nixpkgs でビルドされた .NET ランタイムで動く。
+        # この devShell の LD_LIBRARY_PATH にある openssl を読み込むと
+        # "No usable version of libssl was found" で落ちるため、外して起動する。
+        intent-cli = pkgs.writeShellScriptBin "intent-cli" ''
+          unset LD_LIBRARY_PATH
+          exec ${intent-system-flake.packages.${system}.intent-cli}/bin/intent-cli "$@"
+        '';
       in {
         devShells.default = pkgs.mkShell {
           buildInputs = [
@@ -32,6 +41,7 @@
 
             codex-cli-nix.packages.${system}.default
             claude-code-nix.packages.${system}.default
+            intent-cli
 
             pkgs.opencode
             pkgs.nodejs_22
