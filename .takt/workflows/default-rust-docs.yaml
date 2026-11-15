@@ -1,0 +1,157 @@
+name: default-rust-docs
+description: Rust docs-only workflow（計画 → 文書化 → docs review ⇄ fix → COMPLETE）
+max_steps: 30
+initial_step: plan
+loop_monitors:
+  - cycle:
+      - docs-review
+      - docs-fix
+    threshold: 3
+    judge:
+      persona: supervisor
+      instruction: loop-monitor-reviewers-fix
+      rules:
+        - condition: 健全（指摘数が減少、修正が反映されている）
+          next: docs-review
+        - condition: 非生産的（同じ指摘が繰り返される）
+          next: ABORT
+steps:
+  - name: plan
+    tags:
+      - plan
+      - docs
+      - rust
+      - route-provider-network
+      - route-claude-opus-high-read
+    edit: false
+    persona: planner
+    session_key: rust-docs-plan
+    session: refresh
+    policy:
+      - rust-design
+      - report-phase-boundary
+    knowledge: architecture
+    rules:
+      - condition: 要件が明確でdocs-onlyとして実施可能
+        next: write-docs
+      - condition: ユーザーが質問をしている（実装タスクではない）
+        next: COMPLETE
+      - condition: 要件が不明確、情報不足、または挙動変更が必要
+        next: ABORT
+        appendix: "確認事項:\n- {質問1}\n- {質問2}\n"
+    instruction: rust-docs-plan
+    output_contracts:
+      report:
+        - name: plan.md
+          format: plan
+
+  - name: write-docs
+    tags:
+      - coding
+      - docs
+      - rust
+      - route-provider-network
+      - route-claude-opus-high-edit
+    edit: true
+    persona: coder
+    session_key: rust-docs-write
+    session: refresh
+    policy:
+      - coding
+      - rust-docs
+      - report-phase-boundary
+    required_permission_mode: edit
+    instruction: rust-docs-write
+    quality_gates:
+      - type: command
+        name: rust-quality
+        command: bash ./.takt/quality-gates/rust-quality.sh
+        cwd: .
+        timeout_ms: 900000
+      - type: command
+        name: rust-doc-build
+        command: >-
+          bash -lc 'export RUSTDOCFLAGS="-D warnings";
+          if [[ -n "${TAKT_RUST_DOC_PACKAGE:-}" ]]; then
+            exec cargo doc --no-deps -p "$TAKT_RUST_DOC_PACKAGE";
+          else
+            exec cargo doc --no-deps;
+          fi'
+        cwd: .
+        timeout_ms: 900000
+    rules:
+      - condition: ドキュメント記述が完了した
+        next: docs-review
+      - condition: 判断できない、情報不足、または挙動変更が必要
+        next: plan
+      - condition: ユーザーへの確認事項があるためユーザー入力が必要
+        next: write-docs
+        requires_user_input: true
+        interactive_only: true
+
+  - name: docs-review
+    tags:
+      - review
+      - docs
+      - rust
+      - route-provider-network
+      - route-codex-gpt55
+    edit: false
+    persona: coding-reviewer
+    session_key: rust-docs-review
+    session: refresh
+    policy:
+      - review
+      - rust-docs
+      - report-phase-boundary
+    instruction: rust-docs-review
+    rules:
+      - condition: approved
+        next: COMPLETE
+      - condition: needs_fix
+        next: docs-fix
+    output_contracts:
+      report:
+        - name: docs-review.md
+          format: coding-review
+
+  - name: docs-fix
+    tags:
+      - coding
+      - fix
+      - docs
+      - rust
+      - route-provider-network
+      - route-claude-sonnet-high-edit
+    edit: true
+    persona: coder
+    session_key: rust-docs-fix
+    session: refresh
+    policy:
+      - coding
+      - rust-docs
+      - report-phase-boundary
+    required_permission_mode: edit
+    instruction: rust-docs-fix
+    quality_gates:
+      - type: command
+        name: rust-quality
+        command: bash ./.takt/quality-gates/rust-quality.sh
+        cwd: .
+        timeout_ms: 900000
+      - type: command
+        name: rust-doc-build
+        command: >-
+          bash -lc 'export RUSTDOCFLAGS="-D warnings";
+          if [[ -n "${TAKT_RUST_DOC_PACKAGE:-}" ]]; then
+            exec cargo doc --no-deps -p "$TAKT_RUST_DOC_PACKAGE";
+          else
+            exec cargo doc --no-deps;
+          fi'
+        cwd: .
+        timeout_ms: 900000
+    rules:
+      - condition: 修正完了
+        next: docs-review
+      - condition: 判断できない、情報不足、または挙動変更が必要
+        next: plan

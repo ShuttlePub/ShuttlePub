@@ -28,7 +28,6 @@ CLAUDE.md
 .claude/*
 .codex/*
 .kiro/
-.takt/
 
 # AI Assistants Exclude
 !.claude/settings.json

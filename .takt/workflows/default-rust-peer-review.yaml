@@ -1,0 +1,195 @@
+name: default-rust-peer-review
+description: Rust Phase 2。architecture + AI antipattern + Rust coding reviewを並列実行し、TAKT 0.61のreview adjudicationで指摘を裁定してからfinal gateへ進む。
+subworkflow:
+  callable: true
+  visibility: internal
+  returns:
+    - need_replan
+max_steps: 50
+initial_step: reviewers
+
+loop_monitors:
+  - cycle:
+      - reviewers
+      - review-adjudication
+      - fix
+    threshold: 3
+    judge:
+      persona: supervisor
+      instruction: loop-monitor-reviewers-fix
+      rules:
+        - condition: 健全（指摘数が減少、修正が反映されている）
+          next: reviewers
+        - condition: 非生産的（同じ指摘が繰り返される）
+          next: ABORT
+
+  - cycle:
+      - reviewers
+      - review-adjudication
+      - final-gate
+      - fix
+    threshold: 3
+    judge:
+      persona: supervisor
+      instruction: loop-monitor-reviewers-fix
+      rules:
+        - condition: 健全（指摘数が減少、修正が反映されている）
+          next: reviewers
+        - condition: 非生産的（同じ指摘が繰り返される）
+          next: ABORT
+
+steps:
+  - name: reviewers
+    tags:
+      - review
+      - rust
+    parallel:
+      - name: arch-review
+        tags:
+          - review
+          - architecture
+          - rust
+          - route-provider-network
+          - route-codex-gpt55
+        edit: false
+        persona: architecture-reviewer
+        session_key: rust-arch-review
+        session: refresh
+        policy:
+          - review
+          - report-phase-boundary
+        knowledge: architecture
+        rules:
+          - condition: approved
+          - condition: needs_fix
+        instruction: review-arch
+        output_contracts:
+          report:
+            - name: architect-review.md
+              format: architecture-review
+
+      - name: ai-antipattern-review-2nd
+        tags:
+          - review
+          - ai-antipattern
+          - rust
+          - route-provider-network
+          - route-codex-gpt55
+        edit: false
+        persona: ai-antipattern-reviewer
+        session_key: rust-ai-review-second
+        session: refresh
+        policy:
+          - review
+          - ai-antipattern
+          - report-phase-boundary
+        rules:
+          - condition: AI特有の問題なし
+          - condition: AI特有の問題あり
+        instruction: ai-antipattern-review
+        output_contracts:
+          report:
+            - name: ai-antipattern-review-final.md
+              format: ai-antipattern-review
+
+      - name: coding-review
+        tags:
+          - review
+          - coding
+          - rust
+          - route-provider-network
+          - route-codex-gpt55
+        edit: false
+        persona: coding-reviewer
+        session_key: rust-coding-review
+        session: refresh
+        policy:
+          - review
+          - coding
+          - rust-review
+          - report-phase-boundary
+        pass_previous_response: false
+        instruction: review-coding
+        rules:
+          - condition: approved
+          - condition: needs_fix
+        output_contracts:
+          report:
+            - name: coding-review.md
+              format: coding-review
+
+    # 0.58ではreview結果を必ず裁定し、review-resolution.mdを生成してから
+    # final gate / fixへ進める。
+    rules:
+      - condition: all("approved", "AI特有の問題なし", "approved")
+        next: review-adjudication
+      - condition: any("needs_fix", "AI特有の問題あり", "needs_fix")
+        next: review-adjudication
+
+  - name: review-adjudication
+    uses: peer-review-adjudication
+    with:
+      review_policy_additions:
+        - rust-review
+        - report-phase-boundary
+      review_knowledge_additions:
+        - architecture
+    rules:
+      - condition: 修正対象あり
+        next: fix
+      - condition: 修正対象なし
+        next: final-gate
+      - condition: タスク全体の再計画が必要
+        return: need_replan
+
+  # 0.58のpeer-review final gateを同一report namespaceで使う。
+  # review-adjudicationが直前にreview-resolution.mdを生成するため、
+  # supervise-merge-readinessのreport依存を満たす。
+  - name: final-gate
+    uses: peer-review-final-gate
+    with:
+      review_knowledge:
+        - architecture
+      final_gate_instruction: supervise-review-resolution
+      final_gate_policy:
+        - review
+        - rust-review
+        - report-phase-boundary
+    rules:
+      - condition: APPROVE
+        next: COMPLETE
+      - condition: REJECT
+        next: fix
+      - condition: BLOCKED
+        return: need_replan
+  - name: fix
+    tags:
+      - coding
+      - fix
+      - rust
+      - route-provider-network
+      - route-claude-sonnet-high-edit
+    edit: true
+    persona: coder
+    session_key: rust-peer-fix
+    session: refresh
+    policy:
+      - coding
+      - testing
+      - rust-coding
+      - report-phase-boundary
+    knowledge:
+      - architecture
+    required_permission_mode: edit
+    instruction: rust-fix
+    quality_gates:
+      - type: command
+        name: rust-quality
+        command: bash ./.takt/quality-gates/rust-quality.sh
+        cwd: .
+        timeout_ms: 3600000
+    rules:
+      - condition: 修正完了
+        next: reviewers
+      - condition: 判断できない、情報不足
+        return: need_replan

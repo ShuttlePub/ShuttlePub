@@ -1,0 +1,151 @@
+workflow_command_gates:
+  custom_scripts: true
+
+rate_limit_fallback:
+  switch_chain:
+    - provider: codex
+      model: gpt-6-astra
+
+takt_providers:
+  assistant:
+    provider: codex
+    model: gpt-6-astra
+
+provider_routing:
+  tags:
+    project-consistency-claude-control:
+      provider: claude
+      model: sonnet
+      provider_options:
+        claude:
+          effort: medium
+    project-consistency-gpt-worker:
+      provider: codex
+      model: gpt-6-terra
+      provider_options:
+        codex:
+          reasoning_effort: medium
+    project-consistency-gpt-structured:
+      provider: codex
+      model: gpt-6-luna
+      provider_options:
+        codex:
+          reasoning_effort: medium
+    route-provider-network:
+      provider_options:
+        codex:
+          network_access: true
+        opencode:
+          network_access: true
+    route-claude-tools-read:
+      provider_options:
+        claude:
+          allowed_tools:
+            - Read
+            - Glob
+            - Grep
+            - Bash
+            - WebSearch
+            - WebFetch
+    route-claude-tools-edit:
+      provider_options:
+        claude:
+          allowed_tools:
+            - Read
+            - Glob
+            - Grep
+            - Edit
+            - Write
+            - Bash
+            - WebSearch
+            - WebFetch
+    route-claude-opus-high-read:
+      provider: claude
+      model: opus
+      provider_options:
+        claude:
+          effort: high
+          allowed_tools:
+            - Read
+            - Glob
+            - Grep
+            - Bash
+            - WebSearch
+            - WebFetch
+    route-claude-fable-read:
+      provider: claude
+      model: fable
+      provider_options:
+        claude:
+          effort: high
+          allowed_tools:
+            - Read
+            - Glob
+            - Grep
+            - Bash
+            - WebSearch
+            - WebFetch
+    route-claude-opus-high-edit:
+      provider: claude
+      model: opus
+      provider_options:
+        claude:
+          effort: high
+          allowed_tools:
+            - Read
+            - Glob
+            - Grep
+            - Edit
+            - Write
+            - Bash
+            - WebSearch
+            - WebFetch
+    route-claude-sonnet-high-edit:
+      provider: claude
+      model: sonnet
+      provider_options:
+        claude:
+          effort: high
+          allowed_tools:
+            - Read
+            - Glob
+            - Grep
+            - Edit
+            - Write
+            - Bash
+            - WebSearch
+            - WebFetch
+    route-codex-gpt55:
+      provider: codex
+      model: gpt-6.1-sol
+    route-claude-repair-high:
+      provider_options:
+        claude:
+          effort: high
+          allowed_tools:
+            - Read
+            - Glob
+            - Grep
+            - Edit
+            - Write
+            - Bash
+            - WebSearch
+            - WebFetch
+    route-claude-repair-low:
+      provider_options:
+        claude:
+          effort: low
+          allowed_tools:
+            - Read
+            - Glob
+            - Grep
+            - Edit
+            - Write
+            - Bash
+  personas:
+    project-consistency-audit-supervisor:
+      provider: claude
+      model: sonnet
+      provider_options:
+        claude:
+          effort: medium
