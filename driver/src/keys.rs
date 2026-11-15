@@ -1,76 +1,39 @@
-use http_msgsign_draft::{
-    errors::VerificationError,
-    sign::{SignerKey, VerifierKey},
-};
+use error_stack::{Report, ResultExt};
 use rsa::{
-    RsaPrivateKey, RsaPublicKey,
-    pkcs1v15::{Signature, SigningKey, VerifyingKey},
-    pkcs8::{DecodePublicKey, EncodePublicKey, LineEnding},
+    RsaPrivateKey,
+    pkcs1v15::SigningKey,
+    pkcs8::{EncodePublicKey, LineEnding},
     rand_core::OsRng,
-    signature::{SignatureEncoding, Signer, Verifier},
+    signature::{SignatureEncoding, Signer},
 };
 use sha2::Sha256;
 
-use crate::FederationError;
+use crate::DriverError;
 
+/// RSA key the local actor signs with. It only lives in memory: a new key is
+/// generated at every start and never written anywhere.
 #[derive(Clone)]
 pub struct DevelopmentKey(RsaPrivateKey);
 
 impl DevelopmentKey {
-    pub fn generate() -> Result<Self, FederationError> {
-        Ok(Self(RsaPrivateKey::new(&mut OsRng, 2048)?))
+    /// Generates a 2048-bit key. Slow; run it off the async executor.
+    pub fn generate() -> Result<Self, Report<DriverError>> {
+        RsaPrivateKey::new(&mut OsRng, 2048)
+            .change_context(DriverError::Key)
+            .map(Self)
     }
 
-    pub fn public_pem(&self) -> Result<String, FederationError> {
-        Ok(self.0.to_public_key().to_public_key_pem(LineEnding::LF)?)
+    pub(crate) fn public_pem(&self) -> Result<String, Report<DriverError>> {
+        self.0
+            .to_public_key()
+            .to_public_key_pem(LineEnding::LF)
+            .change_context(DriverError::Key)
     }
-}
 
-pub struct SigningIdentity {
-    pub key: DevelopmentKey,
-    pub id: String,
-}
-
-impl SignerKey for SigningIdentity {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-    fn algorithm(&self) -> String {
-        "rsa-sha256".into()
-    }
-    fn sign(&self, target: &[u8]) -> Vec<u8> {
-        SigningKey::<Sha256>::new(self.key.0.clone())
+    /// RSASSA-PKCS1-v1_5 with SHA-256, i.e. `rsa-sha256`.
+    pub(crate) fn sign(&self, target: &[u8]) -> Vec<u8> {
+        SigningKey::<Sha256>::new(self.0.clone())
             .sign(target)
             .to_vec()
-    }
-}
-
-pub struct VerificationIdentity {
-    id: String,
-    key: VerifyingKey<Sha256>,
-}
-
-impl VerificationIdentity {
-    pub fn new(id: &str, pem: &str) -> Result<Self, FederationError> {
-        Ok(Self {
-            id: id.into(),
-            key: VerifyingKey::new(RsaPublicKey::from_public_key_pem(pem)?),
-        })
-    }
-}
-
-impl VerifierKey for VerificationIdentity {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-    fn algorithm(&self) -> String {
-        "rsa-sha256".into()
-    }
-    fn verify(&self, target: &[u8], signature: &[u8]) -> Result<(), VerificationError> {
-        let signature = Signature::try_from(signature)
-            .map_err(|error| VerificationError::Crypto(Box::new(error)))?;
-        self.key
-            .verify(target, &signature)
-            .map_err(|error| VerificationError::Crypto(Box::new(error)))
     }
 }

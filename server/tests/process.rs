@@ -13,10 +13,12 @@ impl Drop for ServerProcess {
 }
 
 #[tokio::test]
-async fn binary_serves_timeline_and_rejects_unsigned_inbox()
+async fn binary_serves_default_actor_and_rejects_unsigned_inbox()
 -> Result<(), Box<dyn std::error::Error>> {
     let mut child = Command::new(env!("CARGO_BIN_EXE_shuttlepub-server"))
         .env("SHUTTLEPUB_BIND", "127.0.0.1:0")
+        .env_remove("SHUTTLEPUB_ACTOR")
+        .env_remove("SHUTTLEPUB_REMOTE_ORIGINS")
         .env("RUST_LOG", "info")
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
@@ -44,20 +46,45 @@ async fn binary_serves_timeline_and_rejects_unsigned_inbox()
         .no_proxy()
         .timeout(Duration::from_secs(5))
         .build()?;
-    let response = client
-        .get(format!("http://{address}/api/timeline"))
-        .send()
-        .await?;
+    let response = client.get(format!("http://{address}/actor")).send().await?;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     assert_eq!(
-        response.json::<serde_json::Value>().await?,
-        serde_json::json!([])
+        response.headers()[reqwest::header::CONTENT_TYPE],
+        "application/activity+json"
     );
+    let actor = response.json::<serde_json::Value>().await?;
+    assert_eq!(actor["id"], "http://127.0.0.1:3000/actor");
+    assert_eq!(actor["inbox"], "http://127.0.0.1:3000/inbox");
     let response = client
         .post(format!("http://{address}/inbox"))
         .body("{}")
         .send()
         .await?;
     assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+    Ok(())
+}
+
+#[tokio::test]
+async fn binary_refuses_to_start_with_an_invalid_remote_origin()
+-> Result<(), Box<dyn std::error::Error>> {
+    let child = Command::new(env!("CARGO_BIN_EXE_shuttlepub-server"))
+        .env("SHUTTLEPUB_BIND", "127.0.0.1:0")
+        .env("SHUTTLEPUB_REMOTE_ORIGINS", "not a url")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+    let mut process = ServerProcess(child);
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+    let mut poll = tokio::time::interval(Duration::from_millis(50));
+    let status = loop {
+        poll.tick().await;
+        if let Some(status) = process.0.try_wait()? {
+            break status;
+        }
+        if tokio::time::Instant::now() > deadline {
+            return Err("server kept running with an invalid remote origin".into());
+        }
+    };
+    assert!(!status.success(), "exit status {status}");
     Ok(())
 }

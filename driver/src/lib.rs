@@ -1,10 +1,11 @@
-//! Federation adapters.
-mod federation;
-mod keys;
-mod signature;
-mod wire;
+//! Adapters implementing the kernel ports: the remote HTTP client (actor
+//! lookup and Accept delivery), HTTP signatures, the development signing key
+//! and the local actor; plus loading the settings from the environment.
+pub mod config;
+pub mod error;
+pub mod keys;
+pub mod local;
+pub mod remote;
+pub mod signature;
 
-pub use federation::Federation;
-pub use keys::DevelopmentKey;
-pub use signature::{sign_request, verify_request};
-pub use wire::{FederationError, Follow, RemoteActor};
+pub use error::DriverError;

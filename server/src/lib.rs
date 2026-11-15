@@ -1,34 +1,31 @@
-//! Development REST API plus the `/api/v1` contract stubs.
+//! HTTP layer: the composition root, the ActivityPub endpoints (`POST /inbox`,
+//! `GET /actor`) and the `/api/v1` contract stubs.
 pub mod api_v1;
+pub mod app;
+pub mod error;
 pub mod openapi;
-mod routes;
+mod routing;
 
 use api_v1::{ApiV1Error, ErrorCode};
-use application::NoteService;
+use app::AppModule;
 use axum::{
     Router,
     http::header,
+    middleware,
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use driver::Federation;
-use std::sync::Arc;
 
-#[derive(Clone)]
-pub struct AppState {
-    notes: Arc<NoteService>,
-    federation: Arc<Federation>,
-}
-
-pub fn router(notes: Arc<NoteService>, federation: Arc<Federation>) -> Router {
+pub fn router(app: AppModule) -> Router {
     Router::new()
-        .route("/api/notes", post(routes::create))
-        .route("/api/notes/{id}/reactions", post(routes::react))
-        .route("/api/timeline", get(routes::timeline))
-        .route("/inbox", post(routes::inbox))
-        .route("/actor", get(routes::actor))
+        .route("/inbox", post(routing::inbox::accept))
+        .route_layer(middleware::from_fn_with_state(
+            app.clone(),
+            routing::inbox::verify_signature,
+        ))
+        .route("/actor", get(routing::actor::show))
         .route("/openapi.json", get(openapi_json))
-        .with_state(AppState { notes, federation })
+        .with_state(app)
         .merge(openapi::contract().0)
 }
 

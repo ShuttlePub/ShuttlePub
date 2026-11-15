@@ -1,3 +1,7 @@
+//! draft-cavage HTTP signatures as used by ActivityPub servers: `rsa-sha256`
+//! over `(request-target) host date digest content-type`, with a SHA-256
+//! `Digest` of the body.
+
 use std::{
     collections::BTreeMap,
     time::{Duration, SystemTime},
@@ -5,150 +9,258 @@ use std::{
 
 use base64::Engine;
 use bytes::Bytes;
-use http::{HeaderMap, Request};
+use error_stack::{Report, ResultExt};
+use http::{HeaderMap, HeaderName, Request, header};
 use http_body_util::Full;
 use http_msgsign_draft::{
     digest::{ContentHasher, Digest, DigestHash, body::Body},
-    sign::{RequestSign, SignatureParams, headers::SignatureInput},
+    errors::VerificationError,
+    sign::{RequestSign, SignatureParams, SignerKey, VerifierKey, headers::SignatureInput},
 };
-
-use crate::{
-    DevelopmentKey, FederationError, RemoteActor,
-    keys::{SigningIdentity, VerificationIdentity},
+use kernel::{KernelError, entities::PublicKey, interface::HttpSignatureVerifier};
+use rsa::{
+    RsaPublicKey,
+    pkcs1v15::{Signature, VerifyingKey},
+    pkcs8::DecodePublicKey,
+    signature::Verifier,
 };
+use sha2::Sha256;
 
-pub struct Sha256Hasher;
+use crate::keys::DevelopmentKey;
 
-impl ContentHasher for Sha256Hasher {
-    const DIGEST_ALG: &'static str = "SHA-256";
-    fn hash(content: &[u8]) -> DigestHash {
-        use sha2::Digest;
-        DigestHash::new(sha2::Sha256::digest(content).to_vec())
+const ALGORITHM: &str = "rsa-sha256";
+const REQUEST_TARGET: &str = "(request-target)";
+const REQUIRED_COMPONENTS: [&str; 5] = [REQUEST_TARGET, "host", "date", "digest", "content-type"];
+const MAX_CLOCK_SKEW: Duration = Duration::from_secs(300);
+const ACTIVITY_JSON: &str = "application/activity+json";
+
+/// Verifies signatures of requests other servers send to the local inbox.
+pub struct SignatureVerifier;
+
+impl HttpSignatureVerifier for SignatureVerifier {
+    fn inspect(&self, request: &Request<Bytes>) -> Result<String, Report<KernelError>> {
+        Ok(signature_input(request.headers())?.key_id().to_owned())
+    }
+
+    async fn verify(
+        &self,
+        request: &Request<Bytes>,
+        key: &PublicKey,
+    ) -> Result<(), Report<KernelError>> {
+        let input = signature_input(request.headers())?;
+        if input.algorithm() != ALGORITHM {
+            return Err(Report::new(KernelError::InvalidSignature)
+                .attach(format!("unsupported algorithm {}", input.algorithm())));
+        }
+        check_freshness(request.headers())?;
+        let key = RemoteKey::new(key)?;
+        let request = copy_request(request)
+            .verify_digest::<Sha256Hasher>()
+            .await
+            .change_context(KernelError::InvalidSignature)?;
+        input
+            .verify_request(&request, &key)
+            .change_context(KernelError::InvalidSignature)
     }
 }
 
-// Guard the upstream draft parser's unchecked Base64/header conversions and
-// require body, destination and freshness to be cryptographically bound.
-pub(crate) fn signature_input(headers: &HeaderMap) -> Result<SignatureInput, FederationError> {
+/// Validates the `Signature` header before handing it to http-msgsign-draft,
+/// whose parser tolerates duplicated items and unquoted values and panics on
+/// invalid Base64 or header names.
+fn signature_input(headers: &HeaderMap) -> Result<SignatureInput, Report<KernelError>> {
+    let invalid = || Report::new(KernelError::InvalidSignature);
     let raw = headers
         .get("signature")
-        .ok_or(FederationError::Signature)?
+        .ok_or_else(|| invalid().attach("no Signature header"))?
         .to_str()
-        .map_err(|_| FederationError::Signature)?;
-    let mut fields = BTreeMap::new();
-    for pair in raw.split(',') {
-        let (key, value) = pair
+        .change_context(KernelError::InvalidSignature)?;
+    let mut items = BTreeMap::new();
+    for item in raw.split(',') {
+        let (name, value) = item
             .trim()
             .split_once('=')
-            .ok_or(FederationError::Signature)?;
+            .ok_or_else(|| invalid().attach("Signature item without `=`"))?;
         let value = value
             .strip_prefix('"')
-            .and_then(|v| v.strip_suffix('"'))
-            .ok_or(FederationError::Signature)?;
-        if fields.insert(key, value).is_some() {
-            return Err(FederationError::Signature);
+            .and_then(|value| value.strip_suffix('"'))
+            .ok_or_else(|| invalid().attach("unquoted Signature value"))?;
+        if items.insert(name, value).is_some() {
+            return Err(invalid().attach(format!("duplicated Signature item {name}")));
         }
     }
-    let signed = fields.get("headers").ok_or(FederationError::Signature)?;
-    for required in ["(request-target)", "host", "date", "digest", "content-type"] {
-        if !signed.split(' ').any(|header| header == required) {
-            return Err(FederationError::Signature);
+    let covered = items
+        .get("headers")
+        .ok_or_else(|| invalid().attach("Signature without headers"))?;
+    for required in REQUIRED_COMPONENTS {
+        if !covered.split(' ').any(|component| component == required) {
+            return Err(invalid().attach(format!("{required} is not signed")));
         }
     }
-    for header in signed.split(' ') {
-        if header != "(request-target)" && http::HeaderName::from_bytes(header.as_bytes()).is_err()
-        {
-            return Err(FederationError::Signature);
+    for component in covered.split(' ') {
+        if component != REQUEST_TARGET && HeaderName::from_bytes(component.as_bytes()).is_err() {
+            return Err(invalid().attach("invalid header name in Signature headers"));
         }
     }
     base64::engine::general_purpose::STANDARD
-        .decode(fields.get("signature").ok_or(FederationError::Signature)?)
-        .map_err(|_| FederationError::Signature)?;
-    let normalized = fields
+        .decode(
+            items
+                .get("signature")
+                .ok_or_else(|| invalid().attach("Signature without signature"))?,
+        )
+        .change_context(KernelError::InvalidSignature)?;
+    let normalized = items
         .iter()
-        .map(|(key, value)| format!("{key}=\"{value}\""))
+        .map(|(name, value)| format!("{name}=\"{value}\""))
         .collect::<Vec<_>>()
         .join(",");
-    let mut safe_headers = HeaderMap::new();
-    safe_headers.insert(
+    let mut checked = HeaderMap::new();
+    checked.insert(
         "signature",
-        normalized.parse().map_err(|_| FederationError::Signature)?,
+        normalized
+            .parse()
+            .change_context(KernelError::InvalidSignature)?,
     );
-    SignatureInput::from_header(&safe_headers).map_err(|_| FederationError::Signature)
+    SignatureInput::from_header(&checked).change_context(KernelError::InvalidSignature)
 }
 
-pub async fn sign_request(
-    key: &DevelopmentKey,
-    key_id: &str,
-    destination: &str,
-    body: Vec<u8>,
-) -> Result<Request<Body>, FederationError> {
-    let uri: http::Uri = destination.parse().map_err(|_| FederationError::Identity)?;
-    let host = uri
-        .authority()
-        .ok_or(FederationError::Identity)?
-        .to_string();
-    let request = Request::post(uri)
-        .header("host", host)
-        .header("date", httpdate::fmt_http_date(SystemTime::now()))
-        .header("content-type", "application/activity+json")
-        .body(Full::new(Bytes::from(body)))?;
-    let params = SignatureParams::builder()
-        .add_request_target()
-        .add_header("host")
-        .add_header("date")
-        .add_header("digest")
-        .add_header("content-type")
-        .build()
-        .map_err(|_| FederationError::Signature)?;
-    let request = request
-        .digest::<Sha256Hasher>()
-        .await
-        .map_err(|_| FederationError::Signature)?;
-    request
-        .sign(
-            &SigningIdentity {
-                key: key.clone(),
-                id: key_id.into(),
-            },
-            &params,
-        )
-        .await
-        .map_err(|_| FederationError::Signature)
-}
-
-pub async fn verify_request(
-    request: Request<Full<Bytes>>,
-    actor: &RemoteActor,
-) -> Result<Request<Body>, FederationError> {
-    let input = signature_input(request.headers())?;
-    if input.key_id() != actor.public_key.id
-        || actor.public_key.owner != actor.id
-        || input.algorithm() != "rsa-sha256"
-    {
-        return Err(FederationError::Identity);
-    }
-    let date = request
-        .headers()
-        .get("date")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| httpdate::parse_http_date(v).ok())
-        .ok_or(FederationError::Signature)?;
+fn check_freshness(headers: &HeaderMap) -> Result<(), Report<KernelError>> {
+    let date = headers
+        .get(header::DATE)
+        .ok_or_else(|| Report::new(KernelError::InvalidSignature).attach("no Date header"))?
+        .to_str()
+        .change_context(KernelError::InvalidSignature)?;
+    let date = httpdate::parse_http_date(date).change_context(KernelError::InvalidSignature)?;
     let now = SystemTime::now();
-    let age = now
+    let skew = now
         .duration_since(date)
         .or_else(|_| date.duration_since(now))
-        .map_err(|_| FederationError::Signature)?;
-    if age > Duration::from_secs(300) {
-        return Err(FederationError::Signature);
+        .change_context(KernelError::InvalidSignature)?;
+    if skew > MAX_CLOCK_SKEW {
+        return Err(Report::new(KernelError::InvalidSignature)
+            .attach(format!("Date is {}s away from now", skew.as_secs())));
     }
-    let key = VerificationIdentity::new(&actor.public_key.id, &actor.public_key.public_key_pem)?;
-    let request = request
-        .verify_digest::<Sha256Hasher>()
-        .await
-        .map_err(|_| FederationError::Signature)?;
-    input
-        .verify_request(&request, &key)
-        .map_err(|_| FederationError::Signature)?;
-    Ok(request)
+    Ok(())
+}
+
+fn copy_request(request: &Request<Bytes>) -> Request<Full<Bytes>> {
+    let mut copy = Request::new(Full::new(request.body().clone()));
+    *copy.method_mut() = request.method().clone();
+    *copy.uri_mut() = request.uri().clone();
+    *copy.version_mut() = request.version();
+    *copy.headers_mut() = request.headers().clone();
+    copy
+}
+
+struct Sha256Hasher;
+
+impl ContentHasher for Sha256Hasher {
+    const DIGEST_ALG: &'static str = "SHA-256";
+
+    fn hash(content: &[u8]) -> DigestHash {
+        use sha2::Digest as _;
+        DigestHash::new(Sha256::digest(content).to_vec())
+    }
+}
+
+struct RemoteKey {
+    id: String,
+    key: VerifyingKey<Sha256>,
+}
+
+impl RemoteKey {
+    /// An unreadable key is the remote server's fault, not the request's.
+    fn new(key: &PublicKey) -> Result<Self, Report<KernelError>> {
+        let public = RsaPublicKey::from_public_key_pem(key.pem())
+            .change_context(KernelError::RemoteFailure)
+            .attach(format!("public key {}", key.id()))?;
+        Ok(Self {
+            id: key.id().to_owned(),
+            key: VerifyingKey::new(public),
+        })
+    }
+}
+
+impl VerifierKey for RemoteKey {
+    fn id(&self) -> String {
+        self.id.clone()
+    }
+
+    fn algorithm(&self) -> String {
+        ALGORITHM.to_owned()
+    }
+
+    fn verify(&self, target: &[u8], signature: &[u8]) -> Result<(), VerificationError> {
+        let signature = Signature::try_from(signature)
+            .map_err(|error| VerificationError::Crypto(Box::new(error)))?;
+        self.key
+            .verify(target, &signature)
+            .map_err(|error| VerificationError::Crypto(Box::new(error)))
+    }
+}
+
+/// Signs requests the local actor sends to other servers.
+pub(crate) struct RequestSigner {
+    key: DevelopmentKey,
+    key_id: String,
+}
+
+impl RequestSigner {
+    pub(crate) fn new(key: DevelopmentKey, key_id: String) -> Self {
+        Self { key, key_id }
+    }
+
+    /// Builds a signed `POST` of an activity to `destination`.
+    pub(crate) async fn sign_post(
+        &self,
+        destination: &str,
+        body: Vec<u8>,
+    ) -> Result<Request<Body>, Report<KernelError>> {
+        let uri: http::Uri = destination
+            .parse()
+            .change_context(KernelError::UntrustedIdentity)?;
+        let host = uri
+            .authority()
+            .ok_or_else(|| {
+                Report::new(KernelError::UntrustedIdentity).attach("destination without authority")
+            })?
+            .to_string();
+        let request = Request::post(uri)
+            .header(header::HOST, host)
+            .header(header::DATE, httpdate::fmt_http_date(SystemTime::now()))
+            .header(header::CONTENT_TYPE, ACTIVITY_JSON)
+            .body(Full::new(Bytes::from(body)))
+            .change_context(KernelError::Malformed)?;
+        let params = REQUIRED_COMPONENTS
+            .into_iter()
+            .fold(SignatureParams::builder(), |params, component| {
+                if component == REQUEST_TARGET {
+                    params.add_request_target()
+                } else {
+                    params.add_header(component)
+                }
+            })
+            .build()
+            .change_context(KernelError::InvalidSignature)?;
+        request
+            .digest::<Sha256Hasher>()
+            .await
+            .change_context(KernelError::InvalidSignature)?
+            .sign(self, &params)
+            .await
+            .change_context(KernelError::InvalidSignature)
+    }
+}
+
+impl SignerKey for RequestSigner {
+    fn id(&self) -> String {
+        self.key_id.clone()
+    }
+
+    fn algorithm(&self) -> String {
+        ALGORITHM.to_owned()
+    }
+
+    fn sign(&self, target: &[u8]) -> Vec<u8> {
+        self.key.sign(target)
+    }
 }
