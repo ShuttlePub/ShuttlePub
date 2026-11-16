@@ -1,4 +1,4 @@
-# Note foundation
+# Foundation
 
 ## Run
 
@@ -8,97 +8,135 @@ cargo run -p shuttlepub-server
 
 Defaults: `127.0.0.1:3000`, actor `http://127.0.0.1:3000/actor`.
 Override `SHUTTLEPUB_BIND`, `SHUTTLEPUB_ACTOR` and comma-separated
-`SHUTTLEPUB_REMOTE_ORIGINS` (empty means deny all remote access).
-Use the `/actor` path on the public origin. Only explicitly trusted origins may
-be listed, because they can resolve to internal addresses. Redirects and ambient
-HTTP proxies are disabled. HTTP origins are for local testing; use HTTPS for
-remote peers. This is an unauthenticated development service, not internet-ready.
+`SHUTTLEPUB_REMOTE_ORIGINS` (empty means deny all remote access; empty entries
+are skipped, each entry is reduced to its origin, and an entry that is not a
+URL stops the server at startup). Use the `/actor` path on the public origin.
+Only explicitly trusted origins may be listed, because they can resolve to
+internal addresses. Redirects and ambient HTTP proxies are disabled. HTTP
+origins are for local testing; use HTTPS for remote peers. This is an
+unauthenticated development service, not internet-ready.
 
-GET `/openapi.json` serves the generated `/api/v1` contract (see "OpenAPI contract"
-below); the legacy development routes are not part of it. POST `/api/notes` with
-client-generated UUID `id`, UUID `author`, `content`, and `kind: {"type":"post"}`.
-Other kinds require `target`: `reply`, `turbo`, `turbo_quote`. Turbo requires empty
-content; all other kinds require nonblank content. Targets are opaque identifiers
-(not existence-checked in this slice). One reaction value per actor is stored;
-repeating it is a no-op, changing it replaces the value. GET `/api/timeline`
-supports limit 1..100 and exclusive `before` creation-sequence cursor.
+The server answers `POST /inbox` and `GET /actor` (ActivityPub, below),
+`GET /openapi.json` (the generated `/api/v1` contract) and the `/api/v1`
+contract stubs. Nothing is stored: the signing key is generated in memory at
+every start and is never written to disk; no database is used.
 
-## Architecture and durability
+## Architecture
 
-- `kernel`: pure Note aggregate `decide/apply`, creation event variants and reactions.
-- `application`: nitinol ProcessSystem + EventSourceSystem, JSON codec, shared
-  in-memory EventStore/SnapshotStore, global Projector and timeline read model.
-- `driver`: stargate-derived RSA/SHA256 draft HTTP signatures, Actor lookup,
-  Follow validation and Accept delivery.
-- `server`: axum REST and ActivityPub development endpoints.
+Four crates, depending only downwards:
 
-nitinol is pinned to `8c634351d099910b27d26622201ced3914896fc9` because it is evolving
-in parallel. Current Projector polls committed events globally (including live
-events); earlier example prose saying live events are not visible is stale.
-The read model is eventually consistent; command success means persisted, not
-yet visible in the timeline. Creation sequence determines order; reactions do not
-bump notes. Projector updates are idempotent assignments keyed by Note ID.
+| Crate | Holds | Workspace dependencies |
+| --- | --- | --- |
+| `kernel` | Entities and value objects (`LocalActor`, `RemoteActor`, `Follow`, `Accept`, ids, `PublicKey`), the ports to external systems and `KernelError` | none |
+| `application` | Services, the settings port (`AppConfig`) and `ApplicationError` | `kernel` |
+| `driver` | Adapters implementing the kernel ports (remote HTTP client, HTTP signatures, the in-memory signing key, the local actor), loading the settings, `DriverError` | `kernel` |
+| `server` | The composition root (`Handler`, `AppModule`), axum routes and middleware, the HTTP status mapping, the `/api/v1` contract and `main` | `application`, `driver`, `kernel` |
 
-Event persistence and replay are within the lifetime of the supplied in-memory
-stores, **not across process restarts**. Snapshot restore is wired; automatic
-snapshot scheduling is not enabled. Restarting the executable loses events,
-snapshots, projections and its generated RSA private key. No private keys are
-written to disk or committed. The existing root PostgreSQL migration/compose
-artifacts are historical and unused; no PostgreSQL connection is made.
+`kernel` does not depend on tokio, axum or reqwest, and its types are never
+used as JSON: `server` and `driver` convert at their boundary with their own
+serde types.
+
+### Dependency injection (cake pattern)
+
+- Every port is a trait in `kernel::interface` paired with a `DependOn*`
+  trait that hands out an implementation through an accessor, e.g.
+  `RemoteActorResolver` / `DependOnRemoteActorResolver::remote_actor_resolver()`.
+  Ports: `RemoteActorResolver`, `ActivityDelivery`, `HttpSignatureVerifier`,
+  `LocalActorProvider`.
+- A service in `application::services` is a trait whose supertraits are the
+  `DependOn*` traits it needs and whose behaviour is in default methods; a
+  blanket `impl<T: ...> Service for T {}` gives it to every type that provides
+  those dependencies, and a `DependOn*Service` trait exposes it. Services have
+  no struct and no fields: `AcceptFollowService`, `LocalActorService`.
+- `server::app::Handler` owns the driver adapters and implements every
+  `DependOn*` trait; for services it answers `type FooService = Self`. The axum
+  state is `AppModule(Arc<Handler>)` (`Clone`, `Deref<Target = Handler>`), and
+  handlers call services only through accessors, e.g.
+  `app.accept_follow_service().accept(..)`.
+- Async port methods are declared as
+  `fn f(&self, ..) -> impl Future<Output = ..> + Send` and implemented with
+  `async fn`; service default methods return `impl Future + Send` with one
+  `async` block. No `async_trait`.
+- To test a service, implement the `DependOn*` traits on a test type with fake
+  ports; `application/tests/accept_follow.rs` does this without any HTTP
+  server or network.
+
+### Errors
+
+Each layer has a `thiserror` enum carried in an `error_stack::Report`
+(`KernelError`, `ApplicationError`, `DriverError`, `ServerError`). Adapters
+report request-time failures through the ports as one of the `KernelError`
+classes, so `application` never sees driver types; `ApplicationError` keeps
+the class. Only `server/src/error.rs` maps classes to HTTP statuses: invalid
+signature and untrusted identity 401, origin not allowed 403, malformed 400,
+remote failure 502, internal 500; error bodies are `{"error": <reason>}`.
 
 ## Federation boundary
 
-POST `/inbox` accepts only Follow targeting this service's actor. Actor identity,
-key ID and key owner must agree. SHA-256 body digest and RSA-SHA256 signatures
-cover `(request-target) host date digest content-type`; date tolerance is 300s.
-The remote actor document and request body are limited to 256 KiB. Successful
-Accept delivery is required before responding 202. Duplicate Follow requests may
-redeliver the same deterministic Accept ID; durable deduplication/outbox is not
-part of this slice. Invalid signatures never cause Accept delivery.
+`POST /inbox` accepts only a Follow of this service's actor and answers `202`
+once the Accept was delivered. The inbox middleware
+(`server/src/routing/inbox.rs`) checks, and the first failing check decides
+the answer:
+
+1. Body larger than 256 KiB: 413.
+2. `Signature` header missing or malformed (duplicated item, unquoted value,
+   non-Base64 signature, invalid header name) or not covering all of
+   `(request-target) host date digest content-type`: 401.
+3. Body not a Follow (invalid JSON, other `type`, missing or non-string
+   `id`/`actor`/`object`): 400.
+4. `AcceptFollowService::identify`: Follow `id` not a URL 400; `object` not
+   exactly this actor's id 401; `Host` not this actor's host and port 401;
+   `actor` not a URL 400; then the actor is resolved (origin not allowed,
+   non-http(s) scheme or credentials in the URL 403; fetch failure, error
+   status or document over 256 KiB 502; invalid document 400; document `id`
+   not the requested actor or key `owner` not the actor 401; inbox not a URL
+   400 or not allowed 403); `keyId` not the actor's key id 401.
+5. Signature verification: algorithm not `rsa-sha256` 401; `Date` missing,
+   unreadable or more than 300 seconds away 401; unreadable public key 502;
+   SHA-256 digest mismatch 401; signature mismatch 401.
+
+The middleware is attached to the `POST` handler only, so other methods on
+`/inbox` answer `405` without reading the body or contacting a remote.
+
+The Accept (`{actor}/accepts/{Follow id}`, the Follow as `object`) is signed
+with `rsa-sha256` over the same five components under keyId
+`{actor}#main-key`; a delivery error or error status is 502. Remote HTTP times
+out after 10 s (3 s to connect). Duplicate Follow requests redeliver the same
+Accept id; deduplication, follower storage and retries are not implemented.
+`GET /actor` serves the actor as `application/activity+json` (`Application`
+with `id`, `inbox` and `publicKey`) without a signature.
 
 Emumet is not called. Its future capability/signing and relay requirements are
 in [emumet-contract.md](emumet-contract.md).
 
 ## Provenance
 
-The federation algorithm is adapted from HalsekiRaika/stargate:
-`driver/src/client/http.rs`, `driver/src/signature/{signer,verifier}.rs`,
-`driver/src/hasher.rs`, `app-cmd/src/interactors/relay/follow_accept.rs`.
-The implementation uses the same http-msgsign-draft and RSA-SHA256 primitives,
-but uses typed errors, limits, allowlisted destinations and safe parser guards
-instead of copying unchecked unwraps or the original dependency graph.
-Upstream stargate's LICENSE is MIT, copyright (c) 2025 RechellaTek;
-its manifest declares MIT OR Apache-2.0. The MIT notice is preserved in
-[stargate-license.txt](stargate-license.txt).
+The layering and the `DependOn*` dependency injection follow
+HalsekiRaika/architectured. The inbox middleware, the async port style and the
+error-stack reports follow HalsekiRaika/stargate, and the HTTP signature
+handling is adapted from its `driver/src/hasher.rs`, `driver/src/client/http.rs`
+and `driver/src/signature/{signer,verifier}.rs`: the same http-msgsign-draft and
+RSA-SHA256 primitives and signed components, with typed errors, size limits,
+allowlisted destinations and a strict `Signature` header check instead of
+unchecked unwraps. Upstream stargate's LICENSE is MIT, copyright (c) 2025
+RechellaTek; its manifest declares MIT OR Apache-2.0. The MIT notice is
+preserved in [stargate-license.txt](stargate-license.txt).
 
 ## Verification
 
 ```sh
-cargo test --workspace --all-features --locked
-cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-features --locked
 cargo build --workspace --locked
 git diff --check
 ```
 
-On the implementation sandbox, the default stable toolchain's linker references
-a removed Nix store path. Use `cargo +1.97.1` for every command above (including
-`run`) in that environment. No repository toolchain file or linker override is
-needed. This is an environment workaround, not a project or CI requirement.
-
-### Issue #12 contract evidence
-
-| Contract | Implementation | Executable evidence |
-| --- | --- | --- |
-| 1. ProcessSystem/EventSourceSystem and in-memory stores | `application/src/service.rs` | `application/tests/runtime.rs`; `server/tests/process.rs` launches the actual binary |
-| 2. Post/reply/turbo/turbo_quote/reaction decide/apply and replay | `kernel/src/{note,types}.rs`, JSON codec | `kernel/tests/note.rs`; runtime tests reactivate every kind from shared event stores and restore snapshot plus event delta |
-| 3. Projector timeline and REST | `application/src/timeline.rs`, `server/src/routes.rs` | `server/tests/http.rs`, `server/tests/pagination.rs`: creation, reaction, newest-first cursor pagination and invalid limits |
-| 4. Follow/Accept, actor resolution and HTTPSig | `driver/src/{federation,keys,signature,wire}.rs` | `driver/tests/federation.rs`; `server/tests/federation.rs` uses real HTTP endpoints, independent RSA keys, verified Accept and tampered Follow rejection |
-| 5. Emumet capability signing and post-relay requirements | `docs/emumet-contract.md` | Document review; proposal only, not an implemented or approved Emumet API |
-
-The CI workflow runs all workspace tests (including aggregate/replay tests),
-clippy with warnings denied, formatting and build. No external service or
-PostgreSQL is required. Federation fixtures use ephemeral loopback ports.
+CI (`.github/workflows/lint-and-test.yml`) runs these and the `openapi-schema`
+job on pushes and pull requests to `main` and `dev`. No external service is
+required; federation tests start their remote peers on ephemeral loopback ports.
+`server/tests/federation.rs` covers the inbox checks above end to end (test
+names `f01_`..`f12_` and `order_`), `server/tests/process.rs` starts the binary.
 
 ## OpenAPI contract (`/api/v1`)
 
@@ -107,8 +145,8 @@ stubs that answer an explicit `501` with error code `not_implemented`
 (`server/src/api_v1.rs`). The OpenAPI 3.1 document is generated with utoipa from
 `server/src/openapi.rs` and checked in as `openapi/shuttlepub.json`. Output is
 deterministic (object keys sorted, two-space indent, trailing newline).
-`GET /openapi.json` serves exactly the same content. The legacy development
-routes (`/api/notes`, `/api/timeline`, ...) are intentionally not in the schema.
+`GET /openapi.json` serves exactly the same content. Only `/api/v1` routes are
+in the schema; `/inbox`, `/actor` and `/openapi.json` are not.
 
 Regenerate after changing any route or DTO, and commit the result:
 
@@ -137,10 +175,7 @@ one reaction per Profile and Note). **Contract only: nothing is stored or
 synchronised yet.** All routes below are explicit `501 not_implemented` stubs
 (`server/src/api_v1/quick_reaction.rs`); the `200`/`4xx` answers documented in
 the schema describe the behaviour a future implementation must follow. The
-legacy development route `POST /api/notes/{id}/reactions` (one reaction value
-per actor) is a separate development API: it is neither changed nor part of
-this contract or of `openapi/shuttlepub.json`. The UI-facing source of truth is
-the generated schema only.
+UI-facing source of truth is the generated schema only.
 
 | Method | Path | operationId | Request / success body |
 | --- | --- | --- | --- |

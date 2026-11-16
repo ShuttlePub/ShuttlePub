@@ -8,23 +8,21 @@ license.workspace = true
 name = "driver"
 
 [dependencies]
+kernel.workspace = true
+bytes.workspace = true
+error-stack.workspace = true
+http.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
-bytes.workspace = true
+url.workspace = true
 base64 = "0.22"
-http = "1"
 http-body-util = "0.1"
 http-msgsign-draft = "0.4.0"
 httpdate = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 rsa = { version = "0.9", features = ["sha2"] }
 sha2 = "0.10"
-url = { version = "2", features = ["serde"] }
-
-[dev-dependencies]
-axum = "0.8"
 
 [lints]
 workspace = true

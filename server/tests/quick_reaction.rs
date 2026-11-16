@@ -27,7 +27,7 @@ use server::api_v1::{
         RevisionConflictBody, UpdateQuickReactionSettings,
     },
 };
-use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
+use std::{collections::BTreeMap, path::PathBuf};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -1113,14 +1113,13 @@ fn scenarios_follow_the_documented_semantics_and_the_schema() -> TestResult {
 // --------------------------------------------------------------- routes ----
 
 async fn app() -> Result<Router, Box<dyn std::error::Error>> {
-    let notes = Arc::new(application::NoteService::in_memory().await);
-    let key = Arc::new(driver::DevelopmentKey::generate()?);
-    let federation = Arc::new(driver::Federation::new(
-        "https://local.example/actor",
-        vec![],
-        key,
-    )?);
-    Ok(server::router(notes, federation))
+    let config = driver::config::Config::from_lookup(|name: &str| {
+        (name == "SHUTTLEPUB_ACTOR").then(|| "https://local.example/actor".to_owned())
+    })
+    .map_err(|error| format!("{error:?}"))?;
+    let key = driver::keys::DevelopmentKey::generate().map_err(|error| format!("{error:?}"))?;
+    let handler = server::app::Handler::new(config, key).map_err(|error| format!("{error:?}"))?;
+    Ok(server::router(server::app::AppModule::new(handler)))
 }
 
 const ROUTES: [(&str, &str, &str); 5] = [
@@ -1248,21 +1247,5 @@ async fn unsupported_methods_are_not_part_of_the_contract() -> TestResult {
             "{method} {path}"
         );
     }
-    Ok(())
-}
-
-#[tokio::test]
-async fn legacy_development_reaction_route_is_untouched() -> TestResult {
-    // The legacy route still exists and is not served through the contract.
-    let app = app().await?;
-    let response = app
-        .oneshot(
-            Request::post(format!("/api/notes/{NOTE}/reactions"))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from("{}"))?,
-        )
-        .await?;
-    assert_ne!(response.status(), StatusCode::NOT_IMPLEMENTED);
-    assert_ne!(response.status(), StatusCode::NOT_FOUND);
     Ok(())
 }

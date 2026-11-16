@@ -9,17 +9,12 @@ name = "application"
 
 [dependencies]
 kernel.workspace = true
-nitinol.workspace = true
-tokio.workspace = true
-serde.workspace = true
-serde_json.workspace = true
+error-stack.workspace = true
 thiserror.workspace = true
-bytes.workspace = true
-async-trait.workspace = true
-uuid.workspace = true
 
 [dev-dependencies]
-jiff = "0.2"
+tokio = { workspace = true, features = ["macros", "rt"] }
+url.workspace = true
 
 [lints]
 workspace = true

@@ -1,34 +1,37 @@
-use std::sync::Arc;
+use application::config::{AppConfig, DependOnAppConfig};
+use driver::{config::Config, keys::DevelopmentKey};
+use error_stack::{Report, ResultExt};
+use server::{
+    app::{AppModule, Handler},
+    error::ServerError,
+};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn main() -> Result<(), Report<ServerError>> {
     tracing_subscriber::fmt()
         .with_ansi(false)
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
-    let bind = std::env::var("SHUTTLEPUB_BIND").unwrap_or_else(|_| "127.0.0.1:3000".into());
-    let actor =
-        std::env::var("SHUTTLEPUB_ACTOR").unwrap_or_else(|_| "http://127.0.0.1:3000/actor".into());
-    let origins = std::env::var("SHUTTLEPUB_REMOTE_ORIGINS")
-        .unwrap_or_default()
-        .split(',')
-        .filter(|value| !value.is_empty())
-        .map(str::to_owned)
-        .collect();
-    let key = tokio::task::spawn_blocking(driver::DevelopmentKey::generate).await??;
-    let federation = Arc::new(driver::Federation::new(&actor, origins, Arc::new(key))?);
-    let notes = Arc::new(application::NoteService::in_memory().await);
-    let listener = tokio::net::TcpListener::bind(bind).await?;
-    tracing::info!(address = %listener.local_addr()?, "development server listening; storage and signing key are ephemeral");
-    axum::serve(listener, server::router(notes.clone(), federation))
+    let config =
+        Config::from_lookup(|name| std::env::var(name).ok()).change_context(ServerError::Config)?;
+    let key = tokio::task::spawn_blocking(DevelopmentKey::generate)
+        .await
+        .change_context(ServerError::Key)?
+        .change_context(ServerError::Key)?;
+    let app = AppModule::new(Handler::new(config, key)?);
+    let listener = tokio::net::TcpListener::bind(app.app_config().bind_address())
+        .await
+        .change_context(ServerError::Bind)?;
+    let address = listener.local_addr().change_context(ServerError::Bind)?;
+    tracing::info!(%address, "development server listening; the signing key is ephemeral");
+    axum::serve(listener, server::router(app))
         .with_graceful_shutdown(async {
             if let Err(error) = tokio::signal::ctrl_c().await {
                 tracing::error!(%error, "shutdown signal failed");
             }
         })
-        .await?;
-    notes.stop().await?;
-    Ok(())
+        .await
+        .change_context(ServerError::Serve)
 }

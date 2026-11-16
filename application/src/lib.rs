@@ -1,8 +1,9 @@
-//! Note application services.
-mod codec;
-mod service;
-mod timeline;
+//! Use cases. Each service is a trait whose dependencies are its supertraits
+//! and whose behaviour lives in default methods; a blanket impl gives it to
+//! every type that provides those dependencies.
+pub mod config;
+pub mod error;
+pub mod services;
+pub mod transfer;
 
-pub use nitinol::eventsource::error::Retryability;
-pub use service::{NoteService, ServiceError};
-pub use timeline::TimelineEntry;
+pub use error::ApplicationError;

@@ -8,10 +8,11 @@ license.workspace = true
 name = "kernel"
 
 [dependencies]
-nitinol.workspace = true
-serde.workspace = true
+bytes.workspace = true
+error-stack.workspace = true
+http.workspace = true
 thiserror.workspace = true
-uuid.workspace = true
+url.workspace = true
 
 [lints]
 workspace = true

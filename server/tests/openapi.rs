@@ -1,4 +1,3 @@
-use application::NoteService;
 use axum::{
     Router,
     body::Body,
@@ -6,7 +5,7 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use serde_json::Value;
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 use tower::ServiceExt;
 use utoipa::OpenApi;
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -14,14 +13,13 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 async fn app() -> Result<Router, Box<dyn std::error::Error>> {
-    let notes = Arc::new(NoteService::in_memory().await);
-    let key = Arc::new(driver::DevelopmentKey::generate()?);
-    let federation = Arc::new(driver::Federation::new(
-        "https://local.example/actor",
-        vec![],
-        key,
-    )?);
-    Ok(server::router(notes, federation))
+    let config = driver::config::Config::from_lookup(|name: &str| {
+        (name == "SHUTTLEPUB_ACTOR").then(|| "https://local.example/actor".to_owned())
+    })
+    .map_err(|error| format!("{error:?}"))?;
+    let key = driver::keys::DevelopmentKey::generate().map_err(|error| format!("{error:?}"))?;
+    let handler = server::app::Handler::new(config, key).map_err(|error| format!("{error:?}"))?;
+    Ok(server::router(server::app::AppModule::new(handler)))
 }
 
 fn generated_file() -> Result<String, std::io::Error> {
