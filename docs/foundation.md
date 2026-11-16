@@ -95,6 +95,9 @@ the answer:
    unreadable or more than 300 seconds away 401; unreadable public key 502;
    SHA-256 digest mismatch 401; signature mismatch 401.
 
+The middleware is attached to the `POST` handler only, so other methods on
+`/inbox` answer `405` without reading the body or contacting a remote.
+
 The Accept (`{actor}/accepts/{Follow id}`, the Follow as `object`) is signed
 with `rsa-sha256` over the same five components under keyId
 `{actor}#main-key`; a delivery error or error status is 502. Remote HTTP times

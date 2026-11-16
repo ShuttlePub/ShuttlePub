@@ -19,7 +19,7 @@ use std::{
 use axum::{
     Router,
     body::{Body, Bytes},
-    http::{HeaderMap, HeaderValue, Request, StatusCode, header},
+    http::{HeaderMap, HeaderValue, Method, Request, StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -435,6 +435,19 @@ async fn post_inbox(app: &Router, request: InboxRequest) -> Result<StatusCode, B
     Ok(app.clone().oneshot(http).await?.status())
 }
 
+async fn send_inbox(
+    app: &Router,
+    method: Method,
+    request: InboxRequest,
+) -> Result<StatusCode, Box<dyn Error>> {
+    let mut http = Request::builder()
+        .method(method)
+        .uri("/inbox")
+        .body(Body::from(request.body))?;
+    *http.headers_mut() = request.headers;
+    Ok(app.clone().oneshot(http).await?.status())
+}
+
 fn signature_fields(headers: &HeaderMap) -> Result<Vec<(String, String)>, Box<dyn Error>> {
     headers
         .get("signature")
@@ -526,6 +539,50 @@ async fn actor_document_is_served_as_activity_json_without_a_signature() -> Test
         .as_str()
         .ok_or("publicKeyPem must be a string")?;
     RsaPublicKey::from_public_key_pem(pem)?;
+    Ok(())
+}
+
+// --------------------------------------------------------- /inbox methods ----
+
+const NON_POST_METHODS: [Method; 2] = [Method::GET, Method::PUT];
+
+#[tokio::test]
+async fn inbox_answers_405_to_methods_other_than_post() -> TestResult {
+    // Given an application with a POST-only inbox.
+    let peer = valid_peer().await?;
+    let app = app_for(&peer).await?;
+
+    for method in NON_POST_METHODS {
+        // When the inbox is requested with another method and no signature.
+        let request = InboxRequest {
+            headers: HeaderMap::new(),
+            body: Bytes::new(),
+        };
+        let status = send_inbox(&app, method.clone(), request).await?;
+
+        // Then the method is refused before any signature check.
+        assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED, "{method} /inbox");
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn inbox_refuses_signed_follow_sent_with_another_method_without_contacting_the_remote()
+-> TestResult {
+    // Given a remote actor allowed by SHUTTLEPUB_REMOTE_ORIGINS.
+    let peer = valid_peer().await?;
+    let app = app_for(&peer).await?;
+    let request = signed_follow(&peer, &follow(&peer, 1)).await?;
+
+    for method in NON_POST_METHODS {
+        // When a well-formed signed Follow arrives with a method other than POST.
+        let status = send_inbox(&app, method.clone(), request.clone()).await?;
+
+        // Then it is refused with 405 without resolving the sender or answering it.
+        assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED, "{method} /inbox");
+        assert_eq!(peer.actor_fetches(), 0, "{method} /inbox fetched the actor");
+        assert_nothing_delivered(&peer)?;
+    }
     Ok(())
 }
 

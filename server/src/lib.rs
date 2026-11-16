@@ -18,11 +18,13 @@ use axum::{
 
 pub fn router(app: AppModule) -> Router {
     Router::new()
-        .route("/inbox", post(routing::inbox::accept))
-        .route_layer(middleware::from_fn_with_state(
-            app.clone(),
-            routing::inbox::verify_signature,
-        ))
+        .route(
+            "/inbox",
+            post(routing::inbox::accept).route_layer(middleware::from_fn_with_state(
+                app.clone(),
+                routing::inbox::verify_signature,
+            )),
+        )
         .route("/actor", get(routing::actor::show))
         .route("/openapi.json", get(openapi_json))
         .with_state(app)
