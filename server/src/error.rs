@@ -14,6 +14,8 @@ pub enum ServerError {
     Config,
     #[error("the signing key could not be generated")]
     Key,
+    #[error("the database could not be reached, migrated or opened")]
+    Database,
     #[error("the application could not be assembled")]
     Assembly,
     #[error("the listener could not be bound")]
@@ -59,5 +61,31 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let reason = self.0.canonical_reason().unwrap_or("request failed");
         (self.0, Json(json!({ "error": reason }))).into_response()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn status(class: ApplicationError) -> StatusCode {
+        ApiError::from(Report::new(class)).into_response().status()
+    }
+
+    #[test]
+    fn follower_recording_failure_is_answered_500() {
+        // A failed follower record reaches the inbox as an internal failure.
+        assert_eq!(
+            status(ApplicationError::Internal),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[test]
+    fn accept_delivery_failure_is_answered_502() {
+        assert_eq!(
+            status(ApplicationError::RemoteFailure),
+            StatusCode::BAD_GATEWAY
+        );
     }
 }

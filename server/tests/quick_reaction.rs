@@ -1117,8 +1117,14 @@ async fn app() -> Result<Router, Box<dyn std::error::Error>> {
         (name == "SHUTTLEPUB_ACTOR").then(|| "https://local.example/actor".to_owned())
     })
     .map_err(|error| format!("{error:?}"))?;
-    let key = driver::keys::DevelopmentKey::generate().map_err(|error| format!("{error:?}"))?;
-    let handler = server::app::Handler::new(config, key).map_err(|error| format!("{error:?}"))?;
+    let key = driver::identity::DevelopmentKey::generate().map_err(|error| format!("{error:?}"))?;
+    let events = driver::persistence::EventSourcing::start(
+        driver::persistence::test_support::InMemoryStore::default(),
+    )
+    .await;
+    let followers = driver::relay::FollowerJournal::new(&events);
+    let handler =
+        server::app::Handler::new(config, key, followers).map_err(|error| format!("{error:?}"))?;
     Ok(server::router(server::app::AppModule::new(handler)))
 }
 

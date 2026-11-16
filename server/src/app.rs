@@ -2,16 +2,21 @@ use std::{ops::Deref, sync::Arc};
 
 use application::{
     config::{AppConfig, DependOnAppConfig},
-    services::{DependOnAcceptFollowService, DependOnLocalActorService},
+    identity::DependOnLocalActorService,
+    relay::DependOnAcceptFollowService,
 };
 use driver::{
-    config::Config, keys::DevelopmentKey, local::LocalIdentity, remote::RemoteClient,
-    signature::SignatureVerifier,
+    config::Config,
+    identity::{DevelopmentKey, LocalIdentity},
+    relay::{FollowerJournal, RemoteClient, SignatureVerifier},
 };
 use error_stack::{Report, ResultExt};
-use kernel::interface::{
-    DependOnActivityDelivery, DependOnHttpSignatureVerifier, DependOnLocalActorProvider,
-    DependOnRemoteActorResolver, LocalActorProvider,
+use kernel::{
+    identity::{DependOnLocalActorProvider, LocalActorProvider},
+    relay::{
+        DependOnActivityDelivery, DependOnFollowerRecorder, DependOnHttpSignatureVerifier,
+        DependOnRemoteActorResolver,
+    },
 };
 
 use crate::error::ServerError;
@@ -23,10 +28,15 @@ pub struct Handler {
     local: LocalIdentity,
     remote: RemoteClient,
     verifier: SignatureVerifier,
+    followers: FollowerJournal,
 }
 
 impl Handler {
-    pub fn new(config: Config, key: DevelopmentKey) -> Result<Self, Report<ServerError>> {
+    pub fn new(
+        config: Config,
+        key: DevelopmentKey,
+        followers: FollowerJournal,
+    ) -> Result<Self, Report<ServerError>> {
         let local = LocalIdentity::new(config.actor().clone(), &key)
             .change_context(ServerError::Assembly)?;
         let key_id = local.local_actor().public_key().id().to_owned();
@@ -37,6 +47,7 @@ impl Handler {
             local,
             remote,
             verifier: SignatureVerifier,
+            followers,
         })
     }
 }
@@ -65,6 +76,13 @@ impl DependOnRemoteActorResolver for Handler {
     type RemoteActorResolver = RemoteClient;
     fn remote_actor_resolver(&self) -> &Self::RemoteActorResolver {
         &self.remote
+    }
+}
+
+impl DependOnFollowerRecorder for Handler {
+    type FollowerRecorder = FollowerJournal;
+    fn follower_recorder(&self) -> &Self::FollowerRecorder {
+        &self.followers
     }
 }
 

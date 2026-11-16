@@ -2,9 +2,20 @@
 
 ## Run
 
+The server needs PostgreSQL. `compose.yaml` starts one for development on
+`127.0.0.1:5432`:
+
 ```sh
-cargo run -p shuttlepub-server
+docker compose up -d
+SHUTTLEPUB_DATABASE_URL=postgres://shuttlepub:shuttlepub@127.0.0.1:5432/shuttlepub \
+  cargo run -p shuttlepub-server
 ```
+
+`SHUTTLEPUB_DATABASE_URL` has no default: unset, or naming a database that
+cannot be reached, stops the server at startup before it listens. sqlx keeps
+trying to connect for up to 30 seconds before giving up. At every start the
+server applies nitinol's migrations and the application's (both are no-ops on
+an up-to-date database).
 
 Defaults: `127.0.0.1:3000`, actor `http://127.0.0.1:3000/actor`.
 Override `SHUTTLEPUB_BIND`, `SHUTTLEPUB_ACTOR` and comma-separated
@@ -18,8 +29,15 @@ unauthenticated development service, not internet-ready.
 
 The server answers `POST /inbox` and `GET /actor` (ActivityPub, below),
 `GET /openapi.json` (the generated `/api/v1` contract) and the `/api/v1`
-contract stubs. Nothing is stored: the signing key is generated in memory at
-every start and is never written to disk; no database is used.
+contract stubs. The followers of the local actor are recorded in PostgreSQL
+(below). The signing key is generated in memory at every start and is never
+written to disk.
+
+Startup order: settings, signing key, connect to PostgreSQL, migrations, the
+nitinol event sourcing system, the follower projection, then the HTTP
+listener. On Ctrl-C the listener stops first (graceful shutdown) and the
+projection's process is stopped after it; nitinol has no call that stops a
+whole system, so the projection is stopped on its own.
 
 ## Architecture
 
@@ -27,26 +45,43 @@ Four crates, depending only downwards:
 
 | Crate | Holds | Workspace dependencies |
 | --- | --- | --- |
-| `kernel` | Entities and value objects (`LocalActor`, `RemoteActor`, `Follow`, `Accept`, ids, `PublicKey`), the ports to external systems and `KernelError` | none |
+| `kernel` | Entities and value objects (`LocalActor`, `RemoteActor`, `Follow`, `Accept`, ids, `PublicKey`), the follower aggregate, the ports to external systems and `KernelError` | none |
 | `application` | Services, the settings port (`AppConfig`) and `ApplicationError` | `kernel` |
-| `driver` | Adapters implementing the kernel ports (remote HTTP client, HTTP signatures, the in-memory signing key, the local actor), loading the settings, `DriverError` | `kernel` |
+| `driver` | Adapters implementing the kernel ports (remote HTTP client, HTTP signatures, the in-memory signing key, the local actor, the follower journal and read model), PostgreSQL and nitinol, loading the settings, `DriverError` | `kernel` |
 | `server` | The composition root (`Handler`, `AppModule`), axum routes and middleware, the HTTP status mapping, the `/api/v1` contract and `main` | `application`, `driver`, `kernel` |
 
-`kernel` does not depend on tokio, axum or reqwest, and its types are never
-used as JSON: `server` and `driver` convert at their boundary with their own
-serde types.
+`kernel` does not depend on tokio, nitinol's runtime, axum, reqwest or sqlx
+(`cargo tree -p shuttlepub-kernel -e normal`). Its types are never used as
+HTTP or external JSON: `server` and `driver` convert at their boundary with
+their own serde types. The one exception is the follower event, whose JSON is
+its stored form in the journal (below).
+
+### Modules
+
+Inside each crate, code is grouped by responsibility rather than by kind;
+`relay` and `identity` are the same groups in every layer. What a layer has
+only one of (`KernelError`, `ApplicationError`, `DriverError`, `ServerError`,
+the settings in `config`) stays at the crate root.
+
+| Group | Responsibility | `kernel` | `application` | `driver` | `server` |
+| --- | --- | --- | --- | --- | --- |
+| `relay` | The federation inbox and delivery | `Follow`, `Accept`, `RemoteActor`, `Follower`, `AcceptFollow`, `FollowerEvent`, `FollowerEntry`; ports `RemoteActorResolver`, `ActivityDelivery`, `HttpSignatureVerifier`, `FollowerRecorder`, `FollowerReader` | `AcceptFollowService`, `InboundFollow`, `IdentifiedFollow` | `RemoteClient`, `SignatureVerifier`, `FollowerJournal`, `FollowerReadModel`, `start_follower_projection` | `POST /inbox` (`relay.rs`) |
+| `identity` | The actors' identities | `ActorId`, `ActivityId`, `PublicKey`, `LocalActor`; port `LocalActorProvider` | `LocalActorService` | `DevelopmentKey`, `LocalIdentity` | `GET /actor` (`identity.rs`) |
+| `persistence` | Recording and running | — | — | `DatabaseSettings`, `Database` (connection, migrations), `EventSourcing`, `Projection`, `test_support` | startup and shutdown in `main.rs` |
 
 ### Dependency injection (cake pattern)
 
-- Every port is a trait in `kernel::interface` paired with a `DependOn*`
-  trait that hands out an implementation through an accessor, e.g.
+- Every port is a trait in `kernel::relay` or `kernel::identity` paired with a
+  `DependOn*` trait that hands out an implementation through an accessor, e.g.
   `RemoteActorResolver` / `DependOnRemoteActorResolver::remote_actor_resolver()`.
   Ports: `RemoteActorResolver`, `ActivityDelivery`, `HttpSignatureVerifier`,
-  `LocalActorProvider`.
-- A service in `application::services` is a trait whose supertraits are the
-  `DependOn*` traits it needs and whose behaviour is in default methods; a
-  blanket `impl<T: ...> Service for T {}` gives it to every type that provides
-  those dependencies, and a `DependOn*Service` trait exposes it. Services have
+  `FollowerRecorder`, `FollowerReader` (`relay`), `LocalActorProvider`
+  (`identity`).
+- A service in `application::relay` or `application::identity` is a trait
+  whose supertraits are the `DependOn*` traits it needs and whose behaviour is
+  in default methods; a blanket `impl<T: ...> Service for T {}` gives it to
+  every type that provides those dependencies, and a `DependOn*Service` trait
+  exposes it. Services have
   no struct and no fields: `AcceptFollowService`, `LocalActorService`.
 - `server::app::Handler` owns the driver adapters and implements every
   `DependOn*` trait; for services it answers `type FooService = Self`. The axum
@@ -56,7 +91,8 @@ serde types.
 - Async port methods are declared as
   `fn f(&self, ..) -> impl Future<Output = ..> + Send` and implemented with
   `async fn`; service default methods return `impl Future + Send` with one
-  `async` block. No `async_trait`.
+  `async` block. `async_trait` is used only where nitinol declares the trait
+  with it: the `Projector` and `TxProvider` implementations in `driver`.
 - To test a service, implement the `DependOn*` traits on a test type with fake
   ports; `application/tests/accept_follow.rs` does this without any HTTP
   server or network.
@@ -74,8 +110,8 @@ remote failure 502, internal 500; error bodies are `{"error": <reason>}`.
 ## Federation boundary
 
 `POST /inbox` accepts only a Follow of this service's actor and answers `202`
-once the Accept was delivered. The inbox middleware
-(`server/src/routing/inbox.rs`) checks, and the first failing check decides
+once the follower was recorded and the Accept was delivered. The inbox
+middleware (`server/src/relay.rs`) checks, and the first failing check decides
 the answer:
 
 1. Body larger than 256 KiB: 413.
@@ -101,10 +137,83 @@ The middleware is attached to the `POST` handler only, so other methods on
 The Accept (`{actor}/accepts/{Follow id}`, the Follow as `object`) is signed
 with `rsa-sha256` over the same five components under keyId
 `{actor}#main-key`; a delivery error or error status is 502. Remote HTTP times
-out after 10 s (3 s to connect). Duplicate Follow requests redeliver the same
-Accept id; deduplication, follower storage and retries are not implemented.
+out after 10 s (3 s to connect).
+
+After every check passed, `AcceptFollowService::accept` first records the
+follower (actor id, inbox, Follow id) and only then delivers the Accept. A
+failed record answers 500 and delivers nothing; a failed delivery answers 502
+and keeps the record. Recording first means an Accept never reaches an actor
+that was not recorded, and a follower whose Accept was lost sends its Follow
+again: the resend is recorded as a resend (not refused) and answered with the
+same Accept id again. A Follow rejected by a check is never recorded.
+Undo, Announce forwarding, delivery to followers and delivery retries are not
+implemented.
 `GET /actor` serves the actor as `application/activity+json` (`Application`
 with `id`, `inbox` and `publicKey`) without a signature.
+
+## Followers (nitinol and PostgreSQL)
+
+Followers are event sourced with nitinol 0.7. `kernel` uses only its
+`contract` feature (`Aggregate`, `Decider`, `Decision`, `#[derive(Event)]`,
+`Codec`, `AggregateId`), so it stays free of tokio and of nitinol's runtime;
+`driver` uses `eventsource` and `postgres`; `application` and `server` do not
+know nitinol and reach followers through the `kernel::relay` ports. sqlx is
+used through nitinol's re-export, so its version is nitinol's.
+
+- Aggregate (`kernel::relay::Follower`): one per remote actor, id
+  `shuttlepub.relay.follower:{actor id}`. States `NotFollowing` (default) and
+  `Following { actor, inbox, follow }`. One command, `AcceptFollow`, and one
+  event, `FollowerEvent::Followed`. `decide` is pure: an actor not yet
+  following yields one `Followed`; an actor already following is a resend and
+  succeeds without an event. **A resend naming another inbox (or with another
+  Follow id) does not change the follower**: it keeps the inbox and Follow it
+  was first recorded with (the Accept of that resend still goes to the inbox
+  just resolved). `kernel/tests/follower.rs` pins this.
+- Stored form: family `shuttlepub.relay.follower`, type
+  `shuttlepub.relay.follower.FollowerEvent`, JSON tagged by `type`, e.g.
+  `{"type":"Followed","actor":"…","inbox":"…","follow":"…"}`. The codec sits
+  next to the aggregate in `kernel`; `kernel/tests/follower.rs` fixes the
+  family, type name and bytes so that a change that would leave stored events
+  unreadable fails.
+- Recording (`driver::relay::FollowerJournal`): sends `AcceptFollow` to the
+  aggregate with `AggregateProxy::ask_with_retry` and nitinol's default
+  `RetryPolicy` (3 attempts, waiting 100 ms and 200 ms), which retries
+  transient failures (a lost optimistic-lock race, a backend failing for a
+  moment). `AskError::AlreadyCreated` (the first event met an existing
+  follower) is a resend and succeeds; any other failure left after the
+  retries is `KernelError::Internal`. The journal works over any nitinol store:
+  `PostgresStore` when serving, `InMemoryStore` in tests that need no database.
+- Read model: table `relay_followers` (`actor_id` primary key, `inbox`),
+  listed by `driver::relay::FollowerReadModel` (`FollowerReader`). The
+  projection reads `FollowerEvent`s in the journal's global order
+  (`catchup_from_global`) and, through a `TxProvider`, upserts the row and
+  saves its offset in one transaction, so an event delivered twice leaves the
+  row as it was. The projection polls the journal (every 250 ms by default), so
+  **a follower appears in the list with a delay**, not right after it was
+  recorded. No HTTP route lists followers yet; the next unit (Announce
+  forwarding) reads the list.
+- Migrations: nitinol's (`PostgresEventStore::migrate`, recorded in sqlx's
+  `_sqlx_migrations`, which nitinol does not let us rename) and the
+  application's (`driver/migrations/`, recorded in `shuttlepub_migrations`).
+  They use separate tables because a sqlx migrator fails on a version it does
+  not carry.
+
+Known constraints:
+
+- **Single node.** nitinol currently runs on one node and does not expect one
+  projection to run in several processes at once, so ShuttlePub is run as one
+  process; nothing guards against a second (no locking, no leader election).
+  This bounds what is verified at this stage, not ShuttlePub's role of taking
+  the work that gains most from scaling out: what running on one node teaches
+  (one projection only, optimistic-lock conflicts and retries, the start and
+  stop order) feeds back into nitinol's clustering, and scaling out is taken
+  up once nitinol supports it.
+- **No TLS.** nitinol-sqlx does not enable TLS in sqlx, so a PostgreSQL that
+  requires TLS cannot be used.
+- Connecting retries for up to 30 seconds (sqlx's acquire timeout) before the
+  start fails.
+- nitinol panics when it cannot load a projection's saved offset as the
+  projection starts; at startup this stops the server.
 
 Emumet is not called. Its future capability/signing and relay requirements are
 in [emumet-contract.md](emumet-contract.md).
@@ -133,10 +242,28 @@ git diff --check
 ```
 
 CI (`.github/workflows/lint-and-test.yml`) runs these and the `openapi-schema`
-job on pushes and pull requests to `main` and `dev`. No external service is
-required; federation tests start their remote peers on ephemeral loopback ports.
-`server/tests/federation.rs` covers the inbox checks above end to end (test
-names `f01_`..`f12_` and `order_`), `server/tests/process.rs` starts the binary.
+job on pushes and pull requests to `main` and `dev`. Federation tests start
+their remote peers on ephemeral loopback ports and record followers in
+nitinol's in-memory store, so they need no database.
+
+Tests that need PostgreSQL (`driver`'s follower tests and
+`server/tests/process.rs`) get an empty database of their own from
+`driver::persistence::test_support::TestDatabase`: with
+`SHUTTLEPUB_TEST_DATABASE_URL` set they run `CREATE DATABASE` on that server
+(the role needs that permission, and the databases are left behind);
+otherwise they start a PostgreSQL container with testcontainers, which needs
+Docker (CI's `ubuntu-latest` has it). When neither works the tests fail rather
+than pass.
+
+Test names carry the check they cover: `server/tests/federation.rs` covers the
+inbox checks above end to end (`f01_`..`f12_`, `order_`) and a resent Follow
+(`r02_`); `application/tests/accept_follow.rs` the record-then-deliver order
+and its failures (`r01_`..`r05_`); `driver/src/relay/followers/tests.rs` the
+journal, projection and read model on PostgreSQL (`r01_`, `r02_`, `r04_`,
+`r07_` restart, `r08_` migrations twice, `r10_` an event projected twice);
+`server/tests/process.rs` starts the binary (`r08_` start, stop and start
+again on one database, `r09_` no or unreachable database). Transient record
+failures are retried by `ask_with_retry`, whose retries nitinol tests.
 
 ## OpenAPI contract (`/api/v1`)
 

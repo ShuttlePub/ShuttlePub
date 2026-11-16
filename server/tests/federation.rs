@@ -1,10 +1,11 @@
 //! Follow→Accept over `POST /inbox` and `GET /actor`.
 //!
-//! The local application runs in-process; the remote actor is a real HTTP
-//! server on a loopback port, because the application resolves actors and
+//! The local application runs in-process and records followers in nitinol's
+//! in-memory store, so no PostgreSQL is needed; the remote actor is a real
+//! HTTP server on a loopback port, because the application resolves actors and
 //! delivers Accepts over HTTP. Test names carry the issue's check numbers
-//! (`f01_`..`f12_`); `order_` tests pin which answer wins when one request
-//! trips several checks, following the base commit's evaluation order.
+//! (`f01_`..`f12_`, `r02_`); `order_` tests pin which answer wins when one
+//! request trips several checks, following the base commit's evaluation order.
 
 use std::{
     collections::BTreeSet,
@@ -51,9 +52,10 @@ const REQUIRED_COMPONENTS: [&str; 5] =
     ["(request-target)", "host", "date", "digest", "content-type"];
 const ELSEWHERE: &str = "https://elsewhere.example";
 
-static LOCAL_KEY: LazyLock<Result<driver::keys::DevelopmentKey, String>> = LazyLock::new(|| {
-    driver::keys::DevelopmentKey::generate().map_err(|error| format!("{error:?}"))
-});
+static LOCAL_KEY: LazyLock<Result<driver::identity::DevelopmentKey, String>> =
+    LazyLock::new(|| {
+        driver::identity::DevelopmentKey::generate().map_err(|error| format!("{error:?}"))
+    });
 static REMOTE_KEY: LazyLock<Result<RsaPrivateKey, String>> = LazyLock::new(|| {
     RsaPrivateKey::new(&mut rsa::rand_core::OsRng, 2048).map_err(|error| error.to_string())
 });
@@ -74,7 +76,13 @@ async fn local_app(vars: &[(&str, &str)]) -> Result<Router, String> {
     })
     .map_err(|error| format!("{error:?}"))?;
     let key = LOCAL_KEY.as_ref().map_err(Clone::clone)?.clone();
-    let handler = server::app::Handler::new(config, key).map_err(|error| format!("{error:?}"))?;
+    let events = driver::persistence::EventSourcing::start(
+        driver::persistence::test_support::InMemoryStore::default(),
+    )
+    .await;
+    let followers = driver::relay::FollowerJournal::new(&events);
+    let handler =
+        server::app::Handler::new(config, key, followers).map_err(|error| format!("{error:?}"))?;
     Ok(server::router(server::app::AppModule::new(handler)))
 }
 
@@ -698,6 +706,37 @@ async fn f01_each_follow_is_answered_with_its_own_accept_id() -> TestResult {
         assert!(id.starts_with(&prefix), "{id} is not under {prefix}");
     }
     assert_ne!(accepts[0]["id"], accepts[1]["id"]);
+    Ok(())
+}
+
+// ------------------------------------------------------------------------ R2 ----
+
+#[tokio::test]
+async fn r02_follow_resent_by_a_follower_is_answered_202_with_the_same_accept_again() -> TestResult
+{
+    // Given a remote actor whose Follow was already accepted.
+    let peer = valid_peer().await?;
+    let app = app_for(&peer).await?;
+    let follow = follow(&peer, 1);
+    let request = signed_follow(&peer, &follow).await?;
+    assert_eq!(
+        post_inbox(&app, request.clone()).await?,
+        StatusCode::ACCEPTED
+    );
+
+    // When it posts the same Follow again.
+    let status = post_inbox(&app, request).await?;
+
+    // Then the resend is not refused, and the same Accept is delivered again.
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let accepts = peer
+        .deliveries()?
+        .iter()
+        .map(|delivery| serde_json::from_slice::<Value>(&delivery.body))
+        .collect::<Result<Vec<_>, _>>()?;
+    assert_eq!(accepts.len(), 2);
+    assert_eq!(accepts[0]["object"], follow);
+    assert_eq!(accepts[1], accepts[0]);
     Ok(())
 }
 

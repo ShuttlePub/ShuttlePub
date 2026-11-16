@@ -3,8 +3,9 @@
 pub mod api_v1;
 pub mod app;
 pub mod error;
+mod identity;
 pub mod openapi;
-mod routing;
+mod relay;
 
 use api_v1::{ApiV1Error, ErrorCode};
 use app::AppModule;
@@ -20,12 +21,12 @@ pub fn router(app: AppModule) -> Router {
     Router::new()
         .route(
             "/inbox",
-            post(routing::inbox::accept).route_layer(middleware::from_fn_with_state(
+            post(relay::accept).route_layer(middleware::from_fn_with_state(
                 app.clone(),
-                routing::inbox::verify_signature,
+                relay::verify_signature,
             )),
         )
-        .route("/actor", get(routing::actor::show))
+        .route("/actor", get(identity::show))
         .route("/openapi.json", get(openapi_json))
         .with_state(app)
         .merge(openapi::contract().0)

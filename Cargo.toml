@@ -17,6 +17,7 @@ error-stack = "0.6"
 http = "1"
 url = "2"
 uuid = { version = "1", features = ["v4", "serde"] }
+nitinol = "0.7.2"
 kernel = { package = "shuttlepub-kernel", path = "kernel" }
 application = { package = "shuttlepub-application", path = "application" }
 driver = { package = "shuttlepub-driver", path = "driver" }

@@ -12,6 +12,7 @@ kernel.workspace = true
 bytes.workspace = true
 error-stack.workspace = true
 http.workspace = true
+nitinol = { workspace = true, features = ["eventsource", "postgres"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -23,6 +24,20 @@ httpdate = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 rsa = { version = "0.9", features = ["sha2"] }
 sha2 = "0.10"
+# nitinol declares `Projector` and `TxProvider` with `#[async_trait]`; only
+# their implementations use it.
+async-trait = "0.1"
+testcontainers = { version = "=0.27.3", optional = true }
+testcontainers-modules = { version = "=0.15.0", default-features = false, features = ["postgres"], optional = true }
+
+[features]
+# `persistence::test_support`, for the tests of the crates that depend on this one.
+test-support = ["dep:testcontainers", "dep:testcontainers-modules"]
+
+[dev-dependencies]
+testcontainers = "=0.27.3"
+testcontainers-modules = { version = "=0.15.0", default-features = false, features = ["postgres"] }
+tokio.workspace = true
 
 [lints]
 workspace = true
