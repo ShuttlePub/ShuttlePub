@@ -1,5 +1,5 @@
 [workspace]
-members = ["kernel", "application", "driver", "server"]
+members = ["kernel", "port", "application", "driver", "server"]
 resolver = "3"
 
 [workspace.package]
@@ -17,7 +17,11 @@ error-stack = "0.6"
 http = "1"
 url = "2"
 uuid = { version = "1", features = ["v4", "serde"] }
+nitinol = "0.8.0"
+async-trait = "0.1"
+futures-util = "0.3"
 kernel = { package = "shuttlepub-kernel", path = "kernel" }
+port = { package = "shuttlepub-port", path = "port" }
 application = { package = "shuttlepub-application", path = "application" }
 driver = { package = "shuttlepub-driver", path = "driver" }
 

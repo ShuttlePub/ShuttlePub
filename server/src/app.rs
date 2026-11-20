@@ -1,32 +1,44 @@
 use std::{ops::Deref, sync::Arc};
 
 use application::{
+    community::DependOnLocalActorService,
     config::{AppConfig, DependOnAppConfig},
-    services::{DependOnAcceptFollowService, DependOnLocalActorService},
+    eventsource::DependOnEventSourceSystem,
+    intake::DependOnIntakeService,
+    note::DependOnNoteService,
+    producer::DependOnProducerService,
 };
 use driver::{
-    config::Config, keys::DevelopmentKey, local::LocalIdentity, remote::RemoteClient,
-    signature::SignatureVerifier,
+    community::LocalIdentity, config::Config, intake::SignatureVerifier, keys::DevelopmentKey,
+    remote::RemoteClient,
 };
 use error_stack::{Report, ResultExt};
-use kernel::interface::{
-    DependOnActivityDelivery, DependOnHttpSignatureVerifier, DependOnLocalActorProvider,
-    DependOnRemoteActorResolver, LocalActorProvider,
+use kernel::{
+    community::{DependOnLocalActorProvider, LocalActorProvider},
+    intake::DependOnHttpSignatureVerifier,
 };
+use nitinol::{eventsource::system::EventSourceSystem, sqlx::PostgresStore};
+use port::{delivery::DependOnActivityDelivery, intake::DependOnRemoteActorResolver};
 
 use crate::error::ServerError;
 
-/// Composition root: owns the adapters and provides every dependency the
-/// services and the HTTP layer ask for.
+/// Composition root: owns the adapters and the event-sourcing system, and
+/// provides every dependency the services, the reactions and the HTTP layer
+/// ask for. The events are kept in PostgreSQL.
 pub struct Handler {
     bind_address: String,
     local: LocalIdentity,
     remote: RemoteClient,
     verifier: SignatureVerifier,
+    system: EventSourceSystem<PostgresStore>,
 }
 
 impl Handler {
-    pub fn new(config: Config, key: DevelopmentKey) -> Result<Self, Report<ServerError>> {
+    pub fn new(
+        config: Config,
+        key: DevelopmentKey,
+        system: EventSourceSystem<PostgresStore>,
+    ) -> Result<Self, Report<ServerError>> {
         let local = LocalIdentity::new(config.actor().clone(), &key)
             .change_context(ServerError::Assembly)?;
         let key_id = local.local_actor().public_key().id().to_owned();
@@ -37,6 +49,7 @@ impl Handler {
             local,
             remote,
             verifier: SignatureVerifier,
+            system,
         })
     }
 }
@@ -51,6 +64,13 @@ impl DependOnAppConfig for Handler {
     type AppConfig = Self;
     fn app_config(&self) -> &Self::AppConfig {
         self
+    }
+}
+
+impl DependOnEventSourceSystem for Handler {
+    type Store = PostgresStore;
+    fn event_source_system(&self) -> &EventSourceSystem<PostgresStore> {
+        &self.system
     }
 }
 
@@ -82,13 +102,6 @@ impl DependOnHttpSignatureVerifier for Handler {
     }
 }
 
-impl DependOnAcceptFollowService for Handler {
-    type AcceptFollowService = Self;
-    fn accept_follow_service(&self) -> &Self::AcceptFollowService {
-        self
-    }
-}
-
 impl DependOnLocalActorService for Handler {
     type LocalActorService = Self;
     fn local_actor_service(&self) -> &Self::LocalActorService {
@@ -96,9 +109,30 @@ impl DependOnLocalActorService for Handler {
     }
 }
 
+impl DependOnProducerService for Handler {
+    type ProducerService = Self;
+    fn producer_service(&self) -> &Self::ProducerService {
+        self
+    }
+}
+
+impl DependOnNoteService for Handler {
+    type NoteService = Self;
+    fn note_service(&self) -> &Self::NoteService {
+        self
+    }
+}
+
+impl DependOnIntakeService for Handler {
+    type IntakeService = Self;
+    fn intake_service(&self) -> &Self::IntakeService {
+        self
+    }
+}
+
 /// axum state: a cheap handle to the shared `Handler`.
 #[derive(Clone)]
-pub struct AppModule(Arc<Handler>);
+pub struct AppModule(pub(crate) Arc<Handler>);
 
 impl AppModule {
     pub fn new(handler: Handler) -> Self {

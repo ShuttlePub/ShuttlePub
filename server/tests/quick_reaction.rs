@@ -9,6 +9,8 @@
 //!   also validated against the schema;
 //! * route tests: every contract route answers an explicit 501.
 
+mod support;
+
 use axum::{
     Router,
     body::Body,
@@ -1118,7 +1120,12 @@ async fn app() -> Result<Router, Box<dyn std::error::Error>> {
     })
     .map_err(|error| format!("{error:?}"))?;
     let key = driver::keys::DevelopmentKey::generate().map_err(|error| format!("{error:?}"))?;
-    let handler = server::app::Handler::new(config, key).map_err(|error| format!("{error:?}"))?;
+    let system = support::postgres::TestDatabase::create()
+        .await?
+        .event_source_system()
+        .await?;
+    let handler =
+        server::app::Handler::new(config, key, system).map_err(|error| format!("{error:?}"))?;
     Ok(server::router(server::app::AppModule::new(handler)))
 }
 

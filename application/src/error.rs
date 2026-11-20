@@ -11,6 +11,8 @@ pub enum ApplicationError {
     UntrustedIdentity,
     #[error("the remote origin is not allowed")]
     OriginNotAllowed,
+    #[error("the producer's federation has not been accepted")]
+    ProducerNotAccepted,
     #[error("the input is malformed")]
     Malformed,
     #[error("the remote server failed or answered unusably")]

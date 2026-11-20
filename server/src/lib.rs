@@ -1,10 +1,15 @@
-//! HTTP layer: the composition root, the ActivityPub endpoints (`POST /inbox`,
-//! `GET /actor`) and the `/api/v1` contract stubs.
+//! HTTP layer: the composition root, the ActivityPub endpoints (`POST /inbox`
+//! in `intake`, `GET /actor` in `community`), starting the Accept delivery
+//! (`delivery`), the PostgreSQL wiring (`database`) and the `/api/v1` contract
+//! stubs.
 pub mod api_v1;
 pub mod app;
+mod community;
+pub mod database;
+pub mod delivery;
 pub mod error;
+mod intake;
 pub mod openapi;
-mod routing;
 
 use api_v1::{ApiV1Error, ErrorCode};
 use app::AppModule;
@@ -20,12 +25,12 @@ pub fn router(app: AppModule) -> Router {
     Router::new()
         .route(
             "/inbox",
-            post(routing::inbox::accept).route_layer(middleware::from_fn_with_state(
+            post(intake::receive).route_layer(middleware::from_fn_with_state(
                 app.clone(),
-                routing::inbox::verify_signature,
+                intake::verify_signature,
             )),
         )
-        .route("/actor", get(routing::actor::show))
+        .route("/actor", get(community::show))
         .route("/openapi.json", get(openapi_json))
         .with_state(app)
         .merge(openapi::contract().0)

@@ -1,0 +1,21 @@
+# PostgreSQL for running the server on a development machine; see
+# docs/foundation.md. The credentials are for local use only.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: shuttlepub
+      POSTGRES_PASSWORD: shuttlepub
+      POSTGRES_DB: shuttlepub
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost", "-U", "shuttlepub", "-d", "shuttlepub"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  postgres:
