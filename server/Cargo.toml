@@ -10,8 +10,11 @@ name = "server"
 
 [dependencies]
 kernel.workspace = true
+port.workspace = true
 application.workspace = true
 driver.workspace = true
+async-trait.workspace = true
+nitinol = { workspace = true, features = ["eventsource", "postgres"] }
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -26,6 +29,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
+testcontainers = "=0.27.3"
+testcontainers-modules = { version = "=0.15.0", default-features = false, features = ["postgres"] }
 jsonschema = { version = "0.52", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 base64 = "0.22"

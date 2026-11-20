@@ -22,6 +22,7 @@ jobs:
       - run: cargo test --workspace --all-features --locked
       - run: cargo build --workspace --locked
       - run: git diff --check
+      - run: scripts/ci/structural-checks.sh
   openapi-schema:
     runs-on: ubuntu-latest
     steps:

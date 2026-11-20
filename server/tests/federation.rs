@@ -1,72 +1,128 @@
-//! Follow→Accept over `POST /inbox` and `GET /actor`.
+//! `POST /inbox` (Follow and Create) and `GET /actor`.
 //!
-//! The local application runs in-process; the remote actor is a real HTTP
-//! server on a loopback port, because the application resolves actors and
-//! delivers Accepts over HTTP. Test names carry the issue's check numbers
-//! (`f01_`..`f12_`); `order_` tests pin which answer wins when one request
-//! trips several checks, following the base commit's evaluation order.
+//! The local application runs in-process, assembled the way `main` assembles
+//! it: over PostgreSQL (a database of its own per test, see
+//! `support::postgres`), with the Accept delivery saving its position in
+//! PostgreSQL transactions. The remote service is a real HTTP server on
+//! a loopback port, because the application resolves actors and delivers
+//! Accepts over HTTP. An Accept is delivered by a reaction to the recorded
+//! federation, after the Follow has been answered, so tests wait for it with a
+//! deadline.
+//!
+//! Test names carry the issue's check numbers: `f01_`..`f12_` are the base
+//! commit's Follow checks, `r01_`..`r09_` and `n01_`..`n09_` are this issue's
+//! checks for Follow and Create. `order_` tests pin which answer wins when one
+//! request trips several checks.
+
+mod support;
 
 use std::{
     collections::BTreeSet,
     error::Error,
-    sync::{
-        Arc, LazyLock, Mutex,
-        atomic::{AtomicUsize, Ordering},
-    },
+    ops::Deref,
+    sync::LazyLock,
     time::{Duration, SystemTime},
 };
 
 use axum::{
     Router,
     body::{Body, Bytes},
-    http::{HeaderMap, HeaderValue, Method, Request, StatusCode, header},
-    response::{IntoResponse, Response},
-    routing::{get, post},
+    http::{HeaderMap, Method, Request, StatusCode, header},
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use http_body_util::{BodyExt, Full};
 use http_msgsign_draft::{
-    digest::{ContentHasher, Digest, DigestHash},
+    digest::Digest,
     errors::VerificationError,
-    sign::{RequestSign, SignatureParams, SignerKey, VerifierKey, headers::SignatureInput},
+    sign::{VerifierKey, headers::SignatureInput},
 };
 use rsa::{
-    RsaPrivateKey, RsaPublicKey,
-    pkcs1v15::{Signature, SigningKey, VerifyingKey},
-    pkcs8::{DecodePublicKey, EncodePublicKey, LineEnding},
-    signature::{SignatureEncoding, Signer, Verifier},
+    RsaPublicKey,
+    pkcs1v15::{Signature, VerifyingKey},
+    pkcs8::DecodePublicKey,
+    signature::Verifier,
 };
 use serde_json::{Value, json};
+use server::{
+    app::{AppModule, Handler},
+    database::PoolTransactions,
+    delivery::{self, AcceptDeliveryHandle},
+};
 use sha2::Sha256;
+use support::{
+    activity::{
+        LOCAL_ACTOR, LOCAL_HOST, PUBLIC, PUBLIC_BARE, PUBLIC_COMPACT, addressed, create, create_by,
+        follow, note, note_by,
+    },
+    peer::{
+        ActorReply, Peer, actor_document, padded_json, peer_serving, peer_with_broken_public_key,
+        spawn_peer, unresponsive_peer, valid_peer,
+    },
+    postgres::TestDatabase,
+    signing::{InboxRequest, REQUIRED_COMPONENTS, Sha256Hasher, Signing, sign, signed},
+    wait::{REACTION_DEADLINE, eventually},
+};
 use tower::ServiceExt;
 
 type TestResult = Result<(), Box<dyn Error>>;
 
-const LOCAL_ACTOR: &str = "https://local.example/actor";
-const LOCAL_HOST: &str = "local.example";
 const ACTOR_ENV: &str = "SHUTTLEPUB_ACTOR";
 const ORIGINS_ENV: &str = "SHUTTLEPUB_REMOTE_ORIGINS";
 const BODY_LIMIT: usize = 262_144;
-const REQUIRED_COMPONENTS: [&str; 5] =
-    ["(request-target)", "host", "date", "digest", "content-type"];
 const ELSEWHERE: &str = "https://elsewhere.example";
+
+/// Event families of the two aggregates, as the event type a journal row
+/// carries starts with them.
+const PRODUCER: &str = "shuttlepub.producer.v1";
+const NOTE: &str = "shuttlepub.note.v1";
 
 static LOCAL_KEY: LazyLock<Result<driver::keys::DevelopmentKey, String>> = LazyLock::new(|| {
     driver::keys::DevelopmentKey::generate().map_err(|error| format!("{error:?}"))
 });
-static REMOTE_KEY: LazyLock<Result<RsaPrivateKey, String>> = LazyLock::new(|| {
-    RsaPrivateKey::new(&mut rsa::rand_core::OsRng, 2048).map_err(|error| error.to_string())
-});
-
-fn remote_key() -> Result<&'static RsaPrivateKey, String> {
-    REMOTE_KEY.as_ref().map_err(Clone::clone)
-}
 
 // ------------------------------------------------------- local application ----
 
+/// The router of an application assembled the way `main` does. Dereferences
+/// to the router, so a test sends requests to it directly; the database is
+/// kept to read back what the application recorded, and `_reaction` keeps the
+/// Accept delivery alive.
+struct LocalApp {
+    router: Router,
+    database: TestDatabase,
+    _reaction: AcceptDeliveryHandle,
+}
+
+impl Deref for LocalApp {
+    type Target = Router;
+    fn deref(&self) -> &Router {
+        &self.router
+    }
+}
+
+impl LocalApp {
+    /// How many events of `family` the application has recorded.
+    async fn recorded(&self, family: &str) -> Result<usize, Box<dyn Error>> {
+        Ok(usize::try_from(self.database.recorded(family).await?)?)
+    }
+
+    async fn recorded_nothing(&self) -> Result<bool, Box<dyn Error>> {
+        Ok(self.recorded(PRODUCER).await? == 0 && self.recorded(NOTE).await? == 0)
+    }
+
+    /// Waits until exactly `count` events of `family` are recorded.
+    async fn wait_for_recorded(&self, family: &str, count: usize) -> TestResult {
+        eventually(
+            &format!("{count} {family} events"),
+            REACTION_DEADLINE,
+            async || Ok(self.recorded(family).await? == count),
+        )
+        .await
+    }
+}
+
 /// Assembles the application the way `main` does, reading the settings from
-/// `vars` instead of the process environment.
-async fn local_app(vars: &[(&str, &str)]) -> Result<Router, String> {
+/// `vars` instead of the process environment, and starts the Accept delivery.
+async fn local_app(vars: &[(&str, &str)]) -> Result<LocalApp, String> {
     let config = driver::config::Config::from_lookup(|name: &str| {
         vars.iter()
             .find(|(key, _)| *key == name)
@@ -74,16 +130,50 @@ async fn local_app(vars: &[(&str, &str)]) -> Result<Router, String> {
     })
     .map_err(|error| format!("{error:?}"))?;
     let key = LOCAL_KEY.as_ref().map_err(Clone::clone)?.clone();
-    let handler = server::app::Handler::new(config, key).map_err(|error| format!("{error:?}"))?;
-    Ok(server::router(server::app::AppModule::new(handler)))
+    let database = TestDatabase::create()
+        .await
+        .map_err(|error| error.to_string())?;
+    let pool = database
+        .connect()
+        .await
+        .map_err(|error| error.to_string())?;
+    let system = server::database::event_source_system(pool.clone())
+        .await
+        .map_err(|error| format!("{error:?}"))?;
+    let handler = Handler::new(config, key, system).map_err(|error| format!("{error:?}"))?;
+    let app = AppModule::new(handler);
+    let reaction = delivery::spawn_accept_delivery(&app, PoolTransactions::new(pool)).await;
+    Ok(LocalApp {
+        router: server::router(app),
+        database,
+        _reaction: reaction,
+    })
 }
 
-async fn app_for(peer: &Peer) -> Result<Router, String> {
+async fn app_for(peer: &Peer) -> Result<LocalApp, String> {
     local_app(&[
         (ACTOR_ENV, LOCAL_ACTOR),
         (ORIGINS_ENV, peer.origin.as_str()),
     ])
     .await
+}
+
+/// An application that allows every one of `peers`.
+async fn app_for_all(peers: &[&Peer]) -> Result<LocalApp, String> {
+    let origins = peers
+        .iter()
+        .map(|peer| peer.origin.as_str())
+        .collect::<Vec<_>>()
+        .join(",");
+    local_app(&[(ACTOR_ENV, LOCAL_ACTOR), (ORIGINS_ENV, origins.as_str())]).await
+}
+
+/// An application that has already accepted federation from `peer`.
+async fn accepted_app(peer: &Peer) -> Result<LocalApp, Box<dyn Error>> {
+    let app = app_for(peer).await?;
+    let status = post_inbox(&app, signed(peer, &follow(peer, 1)).await?).await?;
+    assert_eq!(status, StatusCode::ACCEPTED, "Follow precondition");
+    Ok(app)
 }
 
 async fn get_actor(app: &Router) -> Result<(StatusCode, HeaderMap, Value), Box<dyn Error>> {
@@ -97,337 +187,7 @@ async fn get_actor(app: &Router) -> Result<(StatusCode, HeaderMap, Value), Box<d
     Ok((status, headers, serde_json::from_slice(&body)?))
 }
 
-// ------------------------------------------------------------ remote peer ----
-
-#[derive(Clone)]
-struct ActorReply {
-    status: StatusCode,
-    location: Option<HeaderValue>,
-    body: Vec<u8>,
-}
-
-impl ActorReply {
-    fn json(document: &Value) -> Result<Self, serde_json::Error> {
-        Ok(Self {
-            status: StatusCode::OK,
-            location: None,
-            body: serde_json::to_vec(document)?,
-        })
-    }
-
-    fn padded(document: &Value, len: usize) -> Result<Self, Box<dyn Error>> {
-        Ok(Self {
-            status: StatusCode::OK,
-            location: None,
-            body: padded_json(document, len)?,
-        })
-    }
-}
-
-impl IntoResponse for ActorReply {
-    fn into_response(self) -> Response {
-        let mut response = (
-            self.status,
-            [(header::CONTENT_TYPE, "application/activity+json")],
-            self.body,
-        )
-            .into_response();
-        if let Some(location) = self.location {
-            response.headers_mut().insert(header::LOCATION, location);
-        }
-        response
-    }
-}
-
-#[derive(Clone)]
-struct Delivery {
-    headers: HeaderMap,
-    body: Bytes,
-}
-
-#[derive(Clone, Default)]
-struct PeerLog {
-    actor_fetches: Arc<AtomicUsize>,
-    redirect_fetches: Arc<AtomicUsize>,
-    deliveries: Arc<Mutex<Vec<Delivery>>>,
-}
-
-struct Peer {
-    origin: String,
-    log: PeerLog,
-    server: tokio::task::JoinHandle<std::io::Result<()>>,
-}
-
-impl Drop for Peer {
-    fn drop(&mut self) {
-        self.server.abort();
-    }
-}
-
-impl Peer {
-    fn actor_id(&self) -> String {
-        format!("{}/actor", self.origin)
-    }
-
-    fn key_id(&self) -> String {
-        format!("{}/actor#main-key", self.origin)
-    }
-
-    fn authority(&self) -> &str {
-        self.origin.trim_start_matches("http://")
-    }
-
-    fn actor_fetches(&self) -> usize {
-        self.log.actor_fetches.load(Ordering::SeqCst)
-    }
-
-    fn redirect_fetches(&self) -> usize {
-        self.log.redirect_fetches.load(Ordering::SeqCst)
-    }
-
-    fn deliveries(&self) -> Result<Vec<Delivery>, String> {
-        self.log
-            .deliveries
-            .lock()
-            .map(|deliveries| deliveries.clone())
-            .map_err(|error| error.to_string())
-    }
-}
-
-fn actor_document(origin: &str) -> Result<Value, Box<dyn Error>> {
-    let pem = remote_key()?
-        .to_public_key()
-        .to_public_key_pem(LineEnding::LF)?;
-    Ok(json!({
-        "@context": ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
-        "id": format!("{origin}/actor"),
-        "type": "Person",
-        "inbox": format!("{origin}/inbox"),
-        "publicKey": {
-            "id": format!("{origin}/actor#main-key"),
-            "owner": format!("{origin}/actor"),
-            "publicKeyPem": pem,
-        },
-    }))
-}
-
-/// Starts a remote actor on a loopback port. `actor` decides what `GET /actor`
-/// answers; `POST /inbox` records each delivery and answers `inbox_status`.
-async fn spawn_peer(
-    actor: impl FnOnce(&str) -> Result<ActorReply, Box<dyn Error>>,
-    inbox_status: StatusCode,
-) -> Result<Peer, Box<dyn Error>> {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
-    let origin = format!("http://{}", listener.local_addr()?);
-    let reply = actor(&origin)?;
-    let redirected = ActorReply::json(&actor_document(&origin)?)?;
-    let log = PeerLog::default();
-    let router = Router::new()
-        .route(
-            "/actor",
-            get({
-                let log = log.clone();
-                move || {
-                    log.actor_fetches.fetch_add(1, Ordering::SeqCst);
-                    let reply = reply.clone();
-                    async move { reply }
-                }
-            }),
-        )
-        .route(
-            "/redirect-target",
-            get({
-                let log = log.clone();
-                move || {
-                    log.redirect_fetches.fetch_add(1, Ordering::SeqCst);
-                    let reply = redirected.clone();
-                    async move { reply }
-                }
-            }),
-        )
-        .route(
-            "/inbox",
-            post({
-                let log = log.clone();
-                move |headers: HeaderMap, body: Bytes| {
-                    let status = match log.deliveries.lock() {
-                        Ok(mut deliveries) => {
-                            deliveries.push(Delivery { headers, body });
-                            inbox_status
-                        }
-                        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
-                    };
-                    async move { status }
-                }
-            }),
-        );
-    let server = tokio::spawn(async move { axum::serve(listener, router).await });
-    Ok(Peer {
-        origin,
-        log,
-        server,
-    })
-}
-
-async fn peer_serving(edit: impl FnOnce(&str, &mut Value)) -> Result<Peer, Box<dyn Error>> {
-    spawn_peer(
-        |origin| {
-            let mut document = actor_document(origin)?;
-            edit(origin, &mut document);
-            Ok(ActorReply::json(&document)?)
-        },
-        StatusCode::ACCEPTED,
-    )
-    .await
-}
-
-async fn valid_peer() -> Result<Peer, Box<dyn Error>> {
-    peer_serving(|_, _| {}).await
-}
-
-async fn peer_with_broken_public_key() -> Result<Peer, Box<dyn Error>> {
-    peer_serving(|_, document| {
-        document["publicKey"]["publicKeyPem"] = json!("-----BEGIN PUBLIC KEY-----\nbroken\n");
-    })
-    .await
-}
-
-// ---------------------------------------------------------------- signing ----
-
-fn follow(peer: &Peer, n: u32) -> Value {
-    json!({
-        "id": format!("{}/follows/{n}", peer.origin),
-        "type": "Follow",
-        "actor": peer.actor_id(),
-        "object": LOCAL_ACTOR,
-    })
-}
-
-/// Serializes `document` and pads it with JSON whitespace to exactly `len` bytes.
-fn padded_json(document: &Value, len: usize) -> Result<Vec<u8>, Box<dyn Error>> {
-    let mut body = serde_json::to_vec(document)?;
-    if body.len() > len {
-        return Err(format!("document is already {} bytes", body.len()).into());
-    }
-    body.resize(len, b' ');
-    Ok(body)
-}
-
-struct Sha256Hasher;
-
-impl ContentHasher for Sha256Hasher {
-    const DIGEST_ALG: &'static str = "SHA-256";
-
-    fn hash(content: &[u8]) -> DigestHash {
-        use sha2::Digest as _;
-        DigestHash::new(Sha256::digest(content).to_vec())
-    }
-}
-
-struct RemoteSigner {
-    key: RsaPrivateKey,
-    id: String,
-    algorithm: String,
-}
-
-impl SignerKey for RemoteSigner {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn algorithm(&self) -> String {
-        self.algorithm.clone()
-    }
-
-    fn sign(&self, target: &[u8]) -> Vec<u8> {
-        SigningKey::<Sha256>::new(self.key.clone())
-            .sign(target)
-            .to_vec()
-    }
-}
-
-/// How the remote side signs a request to the local inbox. `for_peer` is a
-/// signature the local application must accept; tests change one aspect.
-struct Signing {
-    key_id: String,
-    algorithm: &'static str,
-    covered: Vec<&'static str>,
-    host: String,
-    date: Option<String>,
-}
-
-impl Signing {
-    fn for_peer(peer: &Peer) -> Self {
-        Self {
-            key_id: peer.key_id(),
-            algorithm: "rsa-sha256",
-            covered: REQUIRED_COMPONENTS.to_vec(),
-            host: LOCAL_HOST.to_owned(),
-            date: Some(httpdate::fmt_http_date(SystemTime::now())),
-        }
-    }
-
-    fn dated(self, at: SystemTime) -> Self {
-        Self {
-            date: Some(httpdate::fmt_http_date(at)),
-            ..self
-        }
-    }
-}
-
-#[derive(Clone)]
-struct InboxRequest {
-    headers: HeaderMap,
-    body: Bytes,
-}
-
-async fn sign(body: Vec<u8>, signing: &Signing) -> Result<InboxRequest, Box<dyn Error>> {
-    let mut builder = Request::post("/inbox")
-        .header(header::HOST, &signing.host)
-        .header(header::CONTENT_TYPE, "application/activity+json");
-    if let Some(date) = &signing.date {
-        builder = builder.header(header::DATE, date);
-    }
-    let request = builder
-        .body(Full::new(Bytes::from(body)))?
-        .digest::<Sha256Hasher>()
-        .await
-        .map_err(|error| format!("digest: {error:?}"))?;
-    let mut params = SignatureParams::builder();
-    for component in &signing.covered {
-        params = if *component == "(request-target)" {
-            params.add_request_target()
-        } else {
-            params.add_header(*component)
-        };
-    }
-    let params = params
-        .build()
-        .map_err(|error| format!("params: {error:?}"))?;
-    let signer = RemoteSigner {
-        key: remote_key()?.clone(),
-        id: signing.key_id.clone(),
-        algorithm: signing.algorithm.to_owned(),
-    };
-    let request = request
-        .sign(&signer, &params)
-        .await
-        .map_err(|error| format!("sign: {error:?}"))?;
-    let (parts, body) = request.into_parts();
-    let body = body
-        .collect()
-        .await
-        .map_err(|error| format!("body: {error:?}"))?
-        .to_bytes();
-    Ok(InboxRequest {
-        headers: parts.headers,
-        body,
-    })
-}
-
-async fn signed_follow(peer: &Peer, follow: &Value) -> Result<InboxRequest, Box<dyn Error>> {
-    sign(serde_json::to_vec(follow)?, &Signing::for_peer(peer)).await
-}
+// ---------------------------------------------------------------- requests ----
 
 async fn post_inbox(app: &Router, request: InboxRequest) -> Result<StatusCode, Box<dyn Error>> {
     let mut http = Request::post("/inbox").body(Body::from(request.body))?;
@@ -481,6 +241,26 @@ fn quoted(fields: &[(String, String)]) -> String {
         .join(",")
 }
 
+/// `request` with the signature bytes altered, every other value kept.
+fn with_altered_signature(request: InboxRequest) -> Result<InboxRequest, Box<dyn Error>> {
+    let fields = signature_fields(&request.headers)?;
+    let mut signature = STANDARD.decode(field(&fields, "signature").ok_or("no signature")?)?;
+    let last = signature.last_mut().ok_or("empty signature")?;
+    *last ^= 0x01;
+    let altered = fields
+        .iter()
+        .map(|(key, value)| {
+            let value = if key == "signature" {
+                STANDARD.encode(&signature)
+            } else {
+                value.clone()
+            };
+            (key.clone(), value)
+        })
+        .collect::<Vec<_>>();
+    with_signature(request, &quoted(&altered))
+}
+
 struct LocalVerifier {
     id: String,
     key: VerifyingKey<Sha256>,
@@ -507,6 +287,11 @@ impl VerifierKey for LocalVerifier {
 fn assert_nothing_delivered(peer: &Peer) -> TestResult {
     assert!(peer.deliveries()?.is_empty(), "no Accept may be delivered");
     Ok(())
+}
+
+/// A public Create of the peer's Note `n`, signed by the peer's `/actor`.
+async fn signed_create(peer: &Peer, n: u32) -> Result<InboxRequest, Box<dyn Error>> {
+    signed(peer, &create(peer, n, &note(peer, n))).await
 }
 
 // ------------------------------------------------------------------ GET /actor ----
@@ -572,7 +357,7 @@ async fn inbox_refuses_signed_follow_sent_with_another_method_without_contacting
     // Given a remote actor allowed by SHUTTLEPUB_REMOTE_ORIGINS.
     let peer = valid_peer().await?;
     let app = app_for(&peer).await?;
-    let request = signed_follow(&peer, &follow(&peer, 1)).await?;
+    let request = signed(&peer, &follow(&peer, 1)).await?;
 
     for method in NON_POST_METHODS {
         // When a well-formed signed Follow arrives with a method other than POST.
@@ -589,18 +374,18 @@ async fn inbox_refuses_signed_follow_sent_with_another_method_without_contacting
 // ------------------------------------------------------------------------ F1 ----
 
 #[tokio::test]
-async fn f01_signed_follow_is_answered_202_after_an_accept_reaches_the_remote_inbox() -> TestResult
-{
+async fn f01_signed_follow_is_answered_202_and_an_accept_reaches_the_remote_inbox() -> TestResult {
     // Given a remote actor allowed by SHUTTLEPUB_REMOTE_ORIGINS.
     let peer = valid_peer().await?;
     let app = app_for(&peer).await?;
     let follow = follow(&peer, 1);
 
     // When it posts a correctly signed Follow.
-    let status = post_inbox(&app, signed_follow(&peer, &follow).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow).await?).await?;
 
-    // Then the Accept was already delivered when 202 is returned.
+    // Then 202 is returned and the Accept reaches the remote inbox in time.
     assert_eq!(status, StatusCode::ACCEPTED);
+    peer.wait_for_deliveries(1).await?;
     let deliveries = peer.deliveries()?;
     assert_eq!(deliveries.len(), 1, "exactly one Accept per Follow");
     let accept: Value = serde_json::from_slice(&deliveries[0].body)?;
@@ -619,8 +404,9 @@ async fn f01_delivered_accept_is_signed_by_the_published_local_key() -> TestResu
     let (_, _, actor) = get_actor(&app).await?;
 
     // When a signed Follow is accepted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
     assert_eq!(status, StatusCode::ACCEPTED);
+    peer.wait_for_deliveries(1).await?;
 
     // Then the Accept carries the required headers, covers all five components
     // with rsa-sha256 under `{actor}#main-key`, and verifies with that key.
@@ -675,20 +461,17 @@ async fn f01_each_follow_is_answered_with_its_own_accept_id() -> TestResult {
 
     // When both are posted.
     assert_eq!(
-        post_inbox(&app, signed_follow(&peer, &first).await?).await?,
+        post_inbox(&app, signed(&peer, &first).await?).await?,
         StatusCode::ACCEPTED
     );
     assert_eq!(
-        post_inbox(&app, signed_follow(&peer, &second).await?).await?,
+        post_inbox(&app, signed(&peer, &second).await?).await?,
         StatusCode::ACCEPTED
     );
 
     // Then each Accept answers its own Follow under a distinct id.
-    let accepts = peer
-        .deliveries()?
-        .iter()
-        .map(|delivery| serde_json::from_slice::<Value>(&delivery.body))
-        .collect::<Result<Vec<_>, _>>()?;
+    peer.wait_for_deliveries(2).await?;
+    let accepts = peer.accepts()?;
     assert_eq!(accepts.len(), 2);
     assert_eq!(accepts[0]["object"], first);
     assert_eq!(accepts[1]["object"], second);
@@ -731,6 +514,7 @@ async fn f02_body_of_exactly_256_kib_is_still_accepted() -> TestResult {
 
     // Then the limit is inclusive.
     assert_eq!(status, StatusCode::ACCEPTED);
+    peer.wait_for_deliveries(1).await?;
     assert_eq!(peer.deliveries()?.len(), 1);
     Ok(())
 }
@@ -775,7 +559,7 @@ async fn f03_follow_id_that_is_not_a_url_is_rejected_with_400() -> TestResult {
     follow["id"] = json!("not a url");
 
     // When it is posted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow).await?).await?;
 
     // Then it is a bad request.
     assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -791,7 +575,7 @@ async fn f03_follow_actor_that_is_not_a_url_is_rejected_with_400() -> TestResult
     follow["actor"] = json!("not a url");
 
     // When it is posted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow).await?).await?;
 
     // Then it is a bad request and nothing is resolved.
     assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -806,7 +590,7 @@ async fn f04_missing_signature_header_is_rejected_with_401() -> TestResult {
     // Given a valid Follow without a Signature header.
     let peer = valid_peer().await?;
     let app = app_for(&peer).await?;
-    let mut request = signed_follow(&peer, &follow(&peer, 1)).await?;
+    let mut request = signed(&peer, &follow(&peer, 1)).await?;
     request.headers.remove("signature");
 
     // When it is posted.
@@ -821,7 +605,7 @@ async fn f04_missing_signature_header_is_rejected_with_401() -> TestResult {
 async fn f04_malformed_signature_header_is_rejected_with_401() -> TestResult {
     let peer = valid_peer().await?;
     let app = app_for(&peer).await?;
-    let valid = signed_follow(&peer, &follow(&peer, 1)).await?;
+    let valid = signed(&peer, &follow(&peer, 1)).await?;
     let fields = signature_fields(&valid.headers)?;
     let raw = quoted(&fields);
     let unquoted_algorithm = fields
@@ -875,23 +659,7 @@ async fn f04_signature_that_does_not_match_is_rejected_with_401() -> TestResult 
     // Given a Follow whose signature bytes were altered.
     let peer = valid_peer().await?;
     let app = app_for(&peer).await?;
-    let valid = signed_follow(&peer, &follow(&peer, 1)).await?;
-    let fields = signature_fields(&valid.headers)?;
-    let mut signature = STANDARD.decode(field(&fields, "signature").ok_or("no signature")?)?;
-    let last = signature.last_mut().ok_or("empty signature")?;
-    *last ^= 0x01;
-    let altered = fields
-        .iter()
-        .map(|(key, value)| {
-            let value = if key == "signature" {
-                STANDARD.encode(&signature)
-            } else {
-                value.clone()
-            };
-            (key.clone(), value)
-        })
-        .collect::<Vec<_>>();
-    let request = with_signature(valid, &quoted(&altered))?;
+    let request = with_altered_signature(signed(&peer, &follow(&peer, 1)).await?)?;
 
     // When it is posted.
     let status = post_inbox(&app, request).await?;
@@ -906,7 +674,7 @@ async fn f04_body_changed_after_signing_is_rejected_with_401() -> TestResult {
     // Given the signature of one Follow sent with the body of another valid Follow.
     let peer = valid_peer().await?;
     let app = app_for(&peer).await?;
-    let mut request = signed_follow(&peer, &follow(&peer, 1)).await?;
+    let mut request = signed(&peer, &follow(&peer, 1)).await?;
     request.body = Bytes::from(serde_json::to_vec(&follow(&peer, 2))?);
 
     // When it is posted.
@@ -1016,7 +784,7 @@ async fn f06_missing_date_is_rejected_with_401() -> TestResult {
     // parsed answers 401 here (a skipped Date check would surface as 502).
     let peer = peer_with_broken_public_key().await?;
     let app = app_for(&peer).await?;
-    let mut request = signed_follow(&peer, &follow(&peer, 1)).await?;
+    let mut request = signed(&peer, &follow(&peer, 1)).await?;
     request.headers.remove(header::DATE);
 
     // When it is posted.
@@ -1083,7 +851,7 @@ async fn f09_fetched_actor_with_another_id_is_rejected_with_401() -> TestResult 
     let app = app_for(&peer).await?;
 
     // When a Follow signed for the requested actor is posted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
 
     // Then it is unauthorized.
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -1100,7 +868,7 @@ async fn f09_public_key_owned_by_another_actor_is_rejected_with_401() -> TestRes
     let app = app_for(&peer).await?;
 
     // When a correctly signed Follow is posted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
 
     // Then it is unauthorized.
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -1118,7 +886,7 @@ async fn f10_follow_of_another_object_is_rejected_with_401() -> TestResult {
     follow["object"] = json!("https://local.example/someone-else");
 
     // When it is posted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow).await?).await?;
 
     // Then it is unauthorized.
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -1181,7 +949,7 @@ async fn f11_actor_on_an_unlisted_origin_is_rejected_with_403() -> TestResult {
     let app = local_app(&[(ACTOR_ENV, LOCAL_ACTOR), (ORIGINS_ENV, ELSEWHERE)]).await?;
 
     // When the peer posts a correctly signed Follow.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
 
     // Then it is forbidden without contacting the peer.
     assert_eq!(status, StatusCode::FORBIDDEN);
@@ -1199,7 +967,7 @@ async fn f11_actor_inbox_on_an_unlisted_origin_is_rejected_with_403() -> TestRes
     let app = app_for(&peer).await?;
 
     // When it posts a correctly signed Follow.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
 
     // Then it is forbidden.
     assert_eq!(status, StatusCode::FORBIDDEN);
@@ -1217,7 +985,7 @@ async fn f11_actor_with_a_non_http_scheme_is_rejected_with_403() -> TestResult {
     follow["actor"] = json!(format!("{ftp_origin}/actor"));
 
     // When the Follow is posted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow).await?).await?;
 
     // Then it is forbidden.
     assert_eq!(status, StatusCode::FORBIDDEN);
@@ -1233,7 +1001,7 @@ async fn f11_actor_url_with_credentials_is_rejected_with_403() -> TestResult {
     follow["actor"] = json!(format!("http://user:secret@{}/actor", peer.authority()));
 
     // When the Follow is posted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow).await?).await?;
 
     // Then it is forbidden without contacting the peer.
     assert_eq!(status, StatusCode::FORBIDDEN);
@@ -1252,7 +1020,7 @@ async fn f11_actor_inbox_with_credentials_is_rejected_with_403() -> TestResult {
     let app = app_for(&peer).await?;
 
     // When it posts a correctly signed Follow.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
 
     // Then it is forbidden.
     assert_eq!(status, StatusCode::FORBIDDEN);
@@ -1278,7 +1046,7 @@ async fn f12_actor_fetch_error_status_is_answered_502() -> TestResult {
     let app = app_for(&peer).await?;
 
     // When it posts a correctly signed Follow.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
 
     // Then the remote failure is a bad gateway.
     assert_eq!(status, StatusCode::BAD_GATEWAY);
@@ -1296,7 +1064,7 @@ async fn f12_actor_document_over_256_kib_is_answered_502() -> TestResult {
     let app = app_for(&peer).await?;
 
     // When a correctly signed Follow is posted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
 
     // Then it is a bad gateway.
     assert_eq!(status, StatusCode::BAD_GATEWAY);
@@ -1314,7 +1082,7 @@ async fn f12_actor_document_of_exactly_256_kib_is_still_accepted() -> TestResult
     let app = app_for(&peer).await?;
 
     // When a correctly signed Follow is posted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
 
     // Then the limit is inclusive.
     assert_eq!(status, StatusCode::ACCEPTED);
@@ -1328,30 +1096,46 @@ async fn f12_unreadable_public_key_is_answered_502() -> TestResult {
     let app = app_for(&peer).await?;
 
     // When a correctly signed Follow is posted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
 
     // Then it is a bad gateway.
     assert_eq!(status, StatusCode::BAD_GATEWAY);
     assert_nothing_delivered(&peer)
 }
 
+// ------------------------------------------------------------------------ R3 ----
+
 #[tokio::test]
-async fn f12_accept_rejected_by_the_remote_inbox_is_answered_502() -> TestResult {
-    // Given a remote inbox that answers the Accept with an error status.
+async fn r03_accept_rejected_by_the_remote_inbox_is_recorded_and_resent_for_the_same_follow()
+-> TestResult {
+    // Given a remote inbox that answers every Accept with an error status.
     let peer = spawn_peer(
         |origin| Ok(ActorReply::json(&actor_document(origin)?)?),
         StatusCode::INTERNAL_SERVER_ERROR,
     )
     .await?;
     let app = app_for(&peer).await?;
+    let follow = follow(&peer, 1);
 
     // When a correctly signed Follow is posted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow).await?).await?;
 
-    // Then the delivery was attempted and the failure is a bad gateway.
-    assert_eq!(status, StatusCode::BAD_GATEWAY);
-    assert_eq!(peer.deliveries()?.len(), 1);
-    Ok(())
+    // Then it is answered 202, the delivery is attempted, and its failure is
+    // recorded next to the federation.
+    assert_eq!(status, StatusCode::ACCEPTED);
+    peer.wait_for_deliveries(1).await?;
+    app.wait_for_recorded(PRODUCER, 2).await?;
+
+    // When the remote sends the same Follow again.
+    let status = post_inbox(&app, signed(&peer, &follow).await?).await?;
+
+    // Then the federation is recorded again and the Accept is delivered again.
+    assert_eq!(status, StatusCode::ACCEPTED);
+    peer.wait_for_deliveries(2).await?;
+    let accepts = peer.accepts()?;
+    assert_eq!(accepts.len(), 2);
+    assert_eq!(accepts[1]["object"], follow);
+    app.wait_for_recorded(PRODUCER, 4).await
 }
 
 // ------------------------------------------------------------- remote client ----
@@ -1373,7 +1157,7 @@ async fn actor_redirect_is_not_followed() -> TestResult {
     let app = app_for(&peer).await?;
 
     // When a correctly signed Follow is posted.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
 
     // Then the redirect is not followed and the empty answer is not an actor.
     assert_eq!(peer.redirect_fetches(), 0);
@@ -1392,7 +1176,7 @@ async fn remote_origins_are_comma_separated_and_empty_entries_are_ignored() -> T
     let app = local_app(&[(ACTOR_ENV, LOCAL_ACTOR), (ORIGINS_ENV, origins.as_str())]).await?;
 
     // When the peer posts a correctly signed Follow.
-    let status = post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
 
     // Then the peer's origin is allowed.
     assert_eq!(status, StatusCode::ACCEPTED);
@@ -1439,7 +1223,7 @@ async fn order_follow_id_check_wins_over_object_check() -> TestResult {
     follow["object"] = json!("https://local.example/someone-else");
 
     assert_eq!(
-        post_inbox(&app, signed_follow(&peer, &follow).await?).await?,
+        post_inbox(&app, signed(&peer, &follow).await?).await?,
         StatusCode::BAD_REQUEST
     );
     Ok(())
@@ -1454,7 +1238,7 @@ async fn order_object_check_wins_over_actor_url_check() -> TestResult {
     follow["actor"] = json!("not a url");
 
     assert_eq!(
-        post_inbox(&app, signed_follow(&peer, &follow).await?).await?,
+        post_inbox(&app, signed(&peer, &follow).await?).await?,
         StatusCode::UNAUTHORIZED
     );
     Ok(())
@@ -1505,7 +1289,7 @@ async fn order_actor_identity_check_wins_over_inbox_origin_check() -> TestResult
     let app = app_for(&peer).await?;
 
     assert_eq!(
-        post_inbox(&app, signed_follow(&peer, &follow(&peer, 1)).await?).await?,
+        post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?,
         StatusCode::UNAUTHORIZED
     );
     Ok(())
@@ -1581,9 +1365,721 @@ async fn order_date_check_wins_over_public_key_parsing() -> TestResult {
 async fn order_public_key_parsing_wins_over_digest_check() -> TestResult {
     let peer = peer_with_broken_public_key().await?;
     let app = app_for(&peer).await?;
-    let mut request = signed_follow(&peer, &follow(&peer, 1)).await?;
+    let mut request = signed(&peer, &follow(&peer, 1)).await?;
     request.body = Bytes::from(serde_json::to_vec(&follow(&peer, 2))?);
 
     assert_eq!(post_inbox(&app, request).await?, StatusCode::BAD_GATEWAY);
+    Ok(())
+}
+
+// ------------------------------------------------------------------------ R1 ----
+
+#[tokio::test]
+async fn r01_signed_follow_records_the_federation_and_then_the_delivered_accept() -> TestResult {
+    // Given a remote actor allowed by SHUTTLEPUB_REMOTE_ORIGINS.
+    let peer = valid_peer().await?;
+    let app = app_for(&peer).await?;
+
+    // When it posts a correctly signed Follow.
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
+
+    // Then the federation is recorded by the time 202 is returned, and once
+    // the Accept has reached the remote inbox its delivery is recorded too.
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert!(
+        app.recorded(PRODUCER).await? >= 1,
+        "federation not recorded"
+    );
+    peer.wait_for_deliveries(1).await?;
+    app.wait_for_recorded(PRODUCER, 2).await?;
+    assert_eq!(peer.deliveries()?.len(), 1);
+    assert_eq!(app.recorded(NOTE).await?, 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn r01_follow_is_answered_without_waiting_for_the_accept_delivery() -> TestResult {
+    // Given a remote whose inbox takes every Accept and never answers.
+    let peer = unresponsive_peer().await?;
+    let app = app_for(&peer).await?;
+
+    // When it posts a correctly signed Follow.
+    let response = tokio::time::timeout(
+        Duration::from_secs(5),
+        post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?),
+    )
+    .await;
+
+    // Then 202 comes back well before the 10-second delivery timeout, and the
+    // Accept is attempted afterwards.
+    assert_eq!(
+        response.map_err(|_| "the Follow response waited for the Accept delivery")??,
+        StatusCode::ACCEPTED
+    );
+    peer.wait_for_deliveries(1).await
+}
+
+// ------------------------------------------------------------------------ R2 ----
+
+#[tokio::test]
+async fn r02_follow_refused_by_any_check_records_nothing_and_delivers_nothing() -> TestResult {
+    let peer = valid_peer().await?;
+    let body = serde_json::to_vec(&follow(&peer, 1))?;
+    let mut not_a_follow = follow(&peer, 1);
+    not_a_follow["type"] = json!("Note");
+    let mut other_object = follow(&peer, 1);
+    other_object["object"] = json!("https://local.example/someone-else");
+    let mut missing_signature = signed(&peer, &follow(&peer, 1)).await?;
+    missing_signature.headers.remove("signature");
+    let skewed = SystemTime::now() + Duration::from_secs(310);
+    let cases = [
+        (
+            "F2 body over the limit",
+            sign(
+                padded_json(&follow(&peer, 1), BODY_LIMIT + 1)?,
+                &Signing::for_peer(&peer),
+            )
+            .await?,
+            StatusCode::PAYLOAD_TOO_LARGE,
+        ),
+        (
+            "F3 not a Follow",
+            signed(&peer, &not_a_follow).await?,
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            "F4 no signature",
+            missing_signature,
+            StatusCode::UNAUTHORIZED,
+        ),
+        (
+            "F4 altered signature",
+            with_altered_signature(signed(&peer, &follow(&peer, 1)).await?)?,
+            StatusCode::UNAUTHORIZED,
+        ),
+        (
+            "F5 Date not covered",
+            sign(
+                body.clone(),
+                &Signing {
+                    covered: REQUIRED_COMPONENTS
+                        .into_iter()
+                        .filter(|component| *component != "date")
+                        .collect(),
+                    ..Signing::for_peer(&peer)
+                },
+            )
+            .await?,
+            StatusCode::UNAUTHORIZED,
+        ),
+        (
+            "F6 Date outside the window",
+            sign(body.clone(), &Signing::for_peer(&peer).dated(skewed)).await?,
+            StatusCode::UNAUTHORIZED,
+        ),
+        (
+            "F7 other algorithm",
+            sign(
+                body.clone(),
+                &Signing {
+                    algorithm: "hs2019",
+                    ..Signing::for_peer(&peer)
+                },
+            )
+            .await?,
+            StatusCode::UNAUTHORIZED,
+        ),
+        (
+            "F8 other keyId",
+            sign(
+                body.clone(),
+                &Signing {
+                    key_id: format!("{}#other-key", peer.actor_id()),
+                    ..Signing::for_peer(&peer)
+                },
+            )
+            .await?,
+            StatusCode::UNAUTHORIZED,
+        ),
+        (
+            "F10 other object",
+            signed(&peer, &other_object).await?,
+            StatusCode::UNAUTHORIZED,
+        ),
+        (
+            "F10 other Host",
+            sign(
+                body.clone(),
+                &Signing {
+                    host: "other.example".to_owned(),
+                    ..Signing::for_peer(&peer)
+                },
+            )
+            .await?,
+            StatusCode::UNAUTHORIZED,
+        ),
+    ];
+    for (label, request, expected) in cases {
+        // Given a fresh application that allows the peer.
+        let app = app_for(&peer).await?;
+
+        // When a Follow that fails one check is posted.
+        let status = post_inbox(&app, request).await?;
+
+        // Then the answer is unchanged and nothing is recorded.
+        assert_eq!(status, expected, "{label}");
+        assert!(
+            app.recorded_nothing().await?,
+            "{label}: something was recorded"
+        );
+    }
+    assert_nothing_delivered(&peer)?;
+
+    // F9: the fetched actor names another actor.
+    let impostor = peer_serving(|origin, document| {
+        let other = format!("{origin}/someone-else");
+        document["id"] = json!(other);
+        document["publicKey"]["owner"] = json!(other);
+    })
+    .await?;
+    let app = app_for(&impostor).await?;
+    let status = post_inbox(&app, signed(&impostor, &follow(&impostor, 1)).await?).await?;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "F9");
+    assert!(app.recorded_nothing().await?, "F9: something was recorded");
+    assert_nothing_delivered(&impostor)?;
+
+    // F11: the actor's origin is not allowed.
+    let app = local_app(&[(ACTOR_ENV, LOCAL_ACTOR), (ORIGINS_ENV, ELSEWHERE)]).await?;
+    let status = post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?;
+    assert_eq!(status, StatusCode::FORBIDDEN, "F11");
+    assert!(app.recorded_nothing().await?, "F11: something was recorded");
+    assert_nothing_delivered(&peer)
+}
+
+// ------------------------------------------------------------------------ R4 ----
+
+#[tokio::test]
+async fn r04_follow_repeated_after_its_accept_was_delivered_records_and_delivers_nothing()
+-> TestResult {
+    // Given a Follow whose Accept has been delivered and recorded, and a
+    // second service that lets the test see the reaction has moved past it.
+    let peer = valid_peer().await?;
+    let other = valid_peer().await?;
+    let app = app_for_all(&[&peer, &other]).await?;
+    let repeated = follow(&peer, 1);
+    assert_eq!(
+        post_inbox(&app, signed(&peer, &repeated).await?).await?,
+        StatusCode::ACCEPTED
+    );
+    peer.wait_for_deliveries(1).await?;
+    app.wait_for_recorded(PRODUCER, 2).await?;
+
+    // When the same Follow arrives again.
+    let status = post_inbox(&app, signed(&peer, &repeated).await?).await?;
+
+    // Then it is answered 202 without a new event.
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert_eq!(app.recorded(PRODUCER).await?, 2);
+
+    // And once the reaction has delivered a later Accept to the other
+    // service, the first service has still received only its one Accept.
+    assert_eq!(
+        post_inbox(&app, signed(&other, &follow(&other, 1)).await?).await?,
+        StatusCode::ACCEPTED
+    );
+    other.wait_for_deliveries(1).await?;
+    app.wait_for_recorded(PRODUCER, 4).await?;
+    assert_eq!(peer.deliveries()?.len(), 1);
+    Ok(())
+}
+
+// ------------------------------------------------------------------------ R5 ----
+
+#[tokio::test]
+async fn r05_follow_with_a_new_id_after_delivery_is_recorded_and_accepted_again() -> TestResult {
+    // Given a Follow whose Accept has been delivered and recorded.
+    let peer = valid_peer().await?;
+    let app = app_for(&peer).await?;
+    assert_eq!(
+        post_inbox(&app, signed(&peer, &follow(&peer, 1)).await?).await?,
+        StatusCode::ACCEPTED
+    );
+    peer.wait_for_deliveries(1).await?;
+    app.wait_for_recorded(PRODUCER, 2).await?;
+
+    // When the same actor sends a Follow with another id.
+    let second = follow(&peer, 2);
+    let status = post_inbox(&app, signed(&peer, &second).await?).await?;
+
+    // Then the federation is recorded again and that Follow gets its Accept.
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert!(
+        app.recorded(PRODUCER).await? >= 3,
+        "federation not recorded"
+    );
+    peer.wait_for_deliveries(2).await?;
+    assert_eq!(peer.accepts()?[1]["object"], second);
+    app.wait_for_recorded(PRODUCER, 4).await
+}
+
+// ------------------------------------------------------------------------ R9 ----
+
+#[tokio::test]
+async fn r09_unresponsive_remote_does_not_hold_back_the_accept_for_another_service() -> TestResult {
+    // Given an Accept on its way to a remote inbox that never answers.
+    let silent = unresponsive_peer().await?;
+    let other = valid_peer().await?;
+    let app = app_for_all(&[&silent, &other]).await?;
+    assert_eq!(
+        post_inbox(&app, signed(&silent, &follow(&silent, 1)).await?).await?,
+        StatusCode::ACCEPTED
+    );
+    silent.wait_for_deliveries(1).await?;
+
+    // When another service sends a Follow.
+    let other_follow = follow(&other, 1);
+    let status = post_inbox(&app, signed(&other, &other_follow).await?).await?;
+
+    // Then its Accept still arrives in time.
+    assert_eq!(status, StatusCode::ACCEPTED);
+    other.wait_for_deliveries(1).await?;
+    assert_eq!(other.accepts()?[0]["object"], other_follow);
+    Ok(())
+}
+
+// ------------------------------------------------------------------------ N1 ----
+
+#[tokio::test]
+async fn n01_public_note_from_an_accepted_producer_is_recorded() -> TestResult {
+    // Given a service whose federation was accepted.
+    let peer = valid_peer().await?;
+    let app = accepted_app(&peer).await?;
+
+    // When it posts a correctly signed Create of a public Note.
+    let status = post_inbox(&app, signed_create(&peer, 1).await?).await?;
+
+    // Then one "note received" event is recorded.
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert_eq!(app.recorded(NOTE).await?, 1);
+    Ok(())
+}
+
+// ------------------------------------------------------------------------ N2 ----
+
+#[tokio::test]
+async fn n02_the_same_note_arriving_again_adds_no_event() -> TestResult {
+    // Given a Note already recorded.
+    let peer = valid_peer().await?;
+    let app = accepted_app(&peer).await?;
+    let note = note(&peer, 1);
+    let first = create(&peer, 1, &note);
+    assert_eq!(
+        post_inbox(&app, signed(&peer, &first).await?).await?,
+        StatusCode::ACCEPTED
+    );
+    assert_eq!(app.recorded(NOTE).await?, 1);
+
+    for (label, activity) in [
+        ("the same Create", first.clone()),
+        ("another Create of the same Note", create(&peer, 2, &note)),
+    ] {
+        // When the Note arrives again.
+        let status = post_inbox(&app, signed(&peer, &activity).await?).await?;
+
+        // Then it is accepted and the Note is still recorded once.
+        assert_eq!(status, StatusCode::ACCEPTED, "{label}");
+        assert_eq!(app.recorded(NOTE).await?, 1, "{label}");
+    }
+    Ok(())
+}
+
+// ------------------------------------------------------------------------ N3 ----
+
+#[tokio::test]
+async fn n03_create_without_urls_or_an_embedded_note_is_rejected_with_400() -> TestResult {
+    let peer = valid_peer().await?;
+    let app = accepted_app(&peer).await?;
+    let valid = create(&peer, 1, &note(&peer, 1));
+    let mut create_id = valid.clone();
+    create_id["id"] = json!("not a url");
+    let mut actor = valid.clone();
+    actor["actor"] = json!("not a url");
+    let mut note_id = valid.clone();
+    note_id["object"]["id"] = json!("not a url");
+    let mut referenced = valid.clone();
+    referenced["object"] = json!(format!("{}/notes/1", peer.origin));
+    let mut article = valid.clone();
+    article["object"]["type"] = json!("Article");
+    let mut missing = valid.clone();
+    missing
+        .as_object_mut()
+        .ok_or("Create is an object")?
+        .remove("object");
+    for (label, activity) in [
+        ("Create id is not a URL", create_id),
+        ("actor is not a URL", actor),
+        ("Note id is not a URL", note_id),
+        ("object is a reference, not an embedded Note", referenced),
+        ("embedded object is not a Note", article),
+        ("no object", missing),
+    ] {
+        // Given a correctly signed Create whose shape is wrong.
+        let request = signed(&peer, &activity).await?;
+
+        // When it is posted.
+        let status = post_inbox(&app, request).await?;
+
+        // Then it is a bad request and nothing is recorded.
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{label}");
+        assert_eq!(app.recorded(NOTE).await?, 0, "{label}");
+    }
+    Ok(())
+}
+
+// ------------------------------------------------------------------------ N4 ----
+
+#[tokio::test]
+async fn n04_create_failing_the_signature_checks_is_answered_like_a_follow() -> TestResult {
+    let peer = valid_peer().await?;
+    let app = accepted_app(&peer).await?;
+    let body = serde_json::to_vec(&create(&peer, 1, &note(&peer, 1)))?;
+    let mut missing_signature = signed_create(&peer, 1).await?;
+    missing_signature.headers.remove("signature");
+    let mut body_changed = signed_create(&peer, 1).await?;
+    body_changed.body = Bytes::from(serde_json::to_vec(&create(&peer, 2, &note(&peer, 2)))?);
+    let skewed = SystemTime::now() + Duration::from_secs(310);
+    let cases = [
+        ("F4 no signature", missing_signature),
+        (
+            "F4 altered signature",
+            with_altered_signature(signed_create(&peer, 1).await?)?,
+        ),
+        ("F4 body changed after signing", body_changed),
+        (
+            "F5 Digest not covered",
+            sign(
+                body.clone(),
+                &Signing {
+                    covered: REQUIRED_COMPONENTS
+                        .into_iter()
+                        .filter(|component| *component != "digest")
+                        .collect(),
+                    ..Signing::for_peer(&peer)
+                },
+            )
+            .await?,
+        ),
+        (
+            "F6 Date outside the window",
+            sign(body.clone(), &Signing::for_peer(&peer).dated(skewed)).await?,
+        ),
+        (
+            "F7 other algorithm",
+            sign(
+                body.clone(),
+                &Signing {
+                    algorithm: "hs2019",
+                    ..Signing::for_peer(&peer)
+                },
+            )
+            .await?,
+        ),
+        (
+            "F8 other keyId",
+            sign(
+                body.clone(),
+                &Signing {
+                    key_id: format!("{}#other-key", peer.actor_id()),
+                    ..Signing::for_peer(&peer)
+                },
+            )
+            .await?,
+        ),
+    ];
+    for (label, request) in cases {
+        // When a Create from the accepted producer fails a signature check.
+        let status = post_inbox(&app, request).await?;
+
+        // Then it is unauthorized, as a Follow would be, and nothing is recorded.
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "{label}");
+        assert_eq!(app.recorded(NOTE).await?, 0, "{label}");
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn n04_create_from_an_actor_with_an_unreadable_key_is_answered_502() -> TestResult {
+    // Given an allowed actor whose public key PEM cannot be read.
+    let peer = peer_with_broken_public_key().await?;
+    let app = app_for(&peer).await?;
+
+    // When it posts a correctly signed Create.
+    let status = post_inbox(&app, signed_create(&peer, 1).await?).await?;
+
+    // Then it is a bad gateway, as a Follow would be.
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert!(app.recorded_nothing().await?);
+    Ok(())
+}
+
+// ------------------------------------------------------------------------ N5 ----
+
+#[tokio::test]
+async fn n05_create_for_another_host_is_rejected_with_401() -> TestResult {
+    // Given a Create from the accepted producer signed for a different Host.
+    let peer = valid_peer().await?;
+    let app = accepted_app(&peer).await?;
+    let signing = Signing {
+        host: "other.example".to_owned(),
+        ..Signing::for_peer(&peer)
+    };
+    let body = serde_json::to_vec(&create(&peer, 1, &note(&peer, 1)))?;
+
+    // When it is posted.
+    let status = post_inbox(&app, sign(body, &signing).await?).await?;
+
+    // Then it is unauthorized and nothing is recorded.
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(app.recorded(NOTE).await?, 0);
+    Ok(())
+}
+
+// ------------------------------------------------------------------------ N6 ----
+
+#[tokio::test]
+async fn n06_create_from_an_unlisted_origin_is_rejected_with_403() -> TestResult {
+    // Given an application that only allows another origin.
+    let peer = valid_peer().await?;
+    let app = local_app(&[(ACTOR_ENV, LOCAL_ACTOR), (ORIGINS_ENV, ELSEWHERE)]).await?;
+
+    // When the peer posts a correctly signed Create.
+    let status = post_inbox(&app, signed_create(&peer, 1).await?).await?;
+
+    // Then it is forbidden without contacting the peer, as a Follow would be.
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(peer.actor_fetches(), 0);
+    assert!(app.recorded_nothing().await?);
+    Ok(())
+}
+
+#[tokio::test]
+async fn n06_create_whose_actor_cannot_be_fetched_is_answered_502() -> TestResult {
+    // Given a remote that fails to serve its actor.
+    let peer = spawn_peer(
+        |_| {
+            Ok(ActorReply {
+                status: StatusCode::INTERNAL_SERVER_ERROR,
+                location: None,
+                body: b"{}".to_vec(),
+            })
+        },
+        StatusCode::ACCEPTED,
+    )
+    .await?;
+    let app = app_for(&peer).await?;
+
+    // When it posts a correctly signed Create.
+    let status = post_inbox(&app, signed_create(&peer, 1).await?).await?;
+
+    // Then it is a bad gateway, as a Follow would be.
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert!(app.recorded_nothing().await?);
+    Ok(())
+}
+
+// ------------------------------------------------------------------------ N7 ----
+
+#[tokio::test]
+async fn n07_note_attributed_to_someone_other_than_the_create_actor_is_rejected_with_401()
+-> TestResult {
+    // Given a Create by the accepted actor of a Note attributed to another
+    // actor of the same service.
+    let peer = valid_peer().await?;
+    let app = accepted_app(&peer).await?;
+    let foreign = note_by(&peer, &peer.member_id(), 1);
+
+    // When it is posted.
+    let status = post_inbox(&app, signed(&peer, &create(&peer, 1, &foreign)).await?).await?;
+
+    // Then it is unauthorized and nothing is recorded.
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(app.recorded(NOTE).await?, 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn n07_note_id_on_another_origin_than_the_actor_is_rejected_with_401() -> TestResult {
+    // Given a Create of a Note whose id lives on another origin.
+    let peer = valid_peer().await?;
+    let app = accepted_app(&peer).await?;
+    let mut foreign = note(&peer, 1);
+    foreign["id"] = json!(format!("{ELSEWHERE}/notes/1"));
+
+    // When it is posted.
+    let status = post_inbox(&app, signed(&peer, &create(&peer, 1, &foreign)).await?).await?;
+
+    // Then it is unauthorized and nothing is recorded.
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(app.recorded(NOTE).await?, 0);
+    Ok(())
+}
+
+// ------------------------------------------------------------------------ N8 ----
+
+#[tokio::test]
+async fn n08_create_from_a_service_whose_federation_was_not_accepted_is_rejected_with_403()
+-> TestResult {
+    // Given an allowed service that never sent a Follow.
+    let peer = valid_peer().await?;
+    let app = app_for(&peer).await?;
+
+    // When it posts a correctly signed public Create.
+    let status = post_inbox(&app, signed_create(&peer, 1).await?).await?;
+
+    // Then it is forbidden and nothing is recorded.
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert!(app.recorded_nothing().await?);
+    Ok(())
+}
+
+#[tokio::test]
+async fn n08_create_by_another_actor_of_an_accepted_service_is_recorded() -> TestResult {
+    // Given a service whose `/actor` sent the accepted Follow.
+    let peer = valid_peer().await?;
+    let app = accepted_app(&peer).await?;
+
+    // When another actor of the same service posts a Create of its own Note,
+    // signed with its own key.
+    let member = peer.member_id();
+    let activity = create_by(&peer, &member, 1, &note_by(&peer, &member, 1));
+    let request = sign(serde_json::to_vec(&activity)?, &Signing::for_member(&peer)).await?;
+    let status = post_inbox(&app, request).await?;
+
+    // Then the service is recognised by its authority and the Note is recorded.
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert_eq!(app.recorded(NOTE).await?, 1);
+    Ok(())
+}
+
+#[tokio::test]
+async fn n08_federation_of_one_service_does_not_admit_another() -> TestResult {
+    // Given two allowed services, only the first of which sent a Follow.
+    let accepted = valid_peer().await?;
+    let stranger = valid_peer().await?;
+    let app = app_for_all(&[&accepted, &stranger]).await?;
+    assert_eq!(
+        post_inbox(&app, signed(&accepted, &follow(&accepted, 1)).await?).await?,
+        StatusCode::ACCEPTED
+    );
+
+    // When the other service posts a correctly signed public Create.
+    let status = post_inbox(&app, signed_create(&stranger, 1).await?).await?;
+
+    // Then it is forbidden and nothing is recorded.
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(app.recorded(NOTE).await?, 0);
+    Ok(())
+}
+
+// ------------------------------------------------------------------------ N9 ----
+
+#[tokio::test]
+async fn n09_note_not_addressed_to_the_public_is_accepted_without_being_recorded() -> TestResult {
+    // Given a Create whose audience is the followers collection only.
+    let peer = valid_peer().await?;
+    let app = accepted_app(&peer).await?;
+    let followers = format!("{}/followers", peer.actor_id());
+    let private = addressed(note(&peer, 1), json!([followers]), json!([]));
+
+    // When it is posted.
+    let status = post_inbox(&app, signed(&peer, &create(&peer, 1, &private)).await?).await?;
+
+    // Then it is accepted but not recorded.
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert_eq!(app.recorded(NOTE).await?, 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn n09_every_spelling_and_position_of_the_public_audience_is_recorded() -> TestResult {
+    let peer = valid_peer().await?;
+    let app = accepted_app(&peer).await?;
+    let followers = json!([format!("{}/followers", peer.actor_id())]);
+    let audiences = [
+        ("full IRI in to", json!([PUBLIC]), json!([])),
+        ("as:Public in to", json!([PUBLIC_COMPACT]), json!([])),
+        ("Public in to", json!([PUBLIC_BARE]), json!([])),
+        ("full IRI in cc", followers.clone(), json!([PUBLIC])),
+        ("to as a single string", json!(PUBLIC), followers.clone()),
+    ];
+    for (n, (label, to, cc)) in (1..).zip(audiences) {
+        // Given a Create of a new Note addressed to the public this way.
+        let addressed_note = addressed(note(&peer, n), to, cc);
+        let request = signed(&peer, &create(&peer, n, &addressed_note)).await?;
+
+        // When it is posted.
+        let status = post_inbox(&app, request).await?;
+
+        // Then the Note is recorded.
+        assert_eq!(status, StatusCode::ACCEPTED, "{label}");
+        assert_eq!(app.recorded(NOTE).await?, usize::try_from(n)?, "{label}");
+    }
+    Ok(())
+}
+
+// ------------------------------------------------------------- Create order ----
+
+#[tokio::test]
+async fn order_create_shape_check_wins_over_host_check() -> TestResult {
+    let peer = valid_peer().await?;
+    let app = accepted_app(&peer).await?;
+    let mut activity = create(&peer, 1, &note(&peer, 1));
+    activity["object"]["id"] = json!("not a url");
+    let signing = Signing {
+        host: "other.example".to_owned(),
+        ..Signing::for_peer(&peer)
+    };
+
+    assert_eq!(
+        post_inbox(&app, sign(serde_json::to_vec(&activity)?, &signing).await?).await?,
+        StatusCode::BAD_REQUEST
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn order_create_signature_check_wins_over_federation_check() -> TestResult {
+    let peer = valid_peer().await?;
+    let app = app_for(&peer).await?;
+    let request = with_altered_signature(signed_create(&peer, 1).await?)?;
+
+    assert_eq!(post_inbox(&app, request).await?, StatusCode::UNAUTHORIZED);
+    Ok(())
+}
+
+#[tokio::test]
+async fn order_create_attribution_check_wins_over_federation_check() -> TestResult {
+    let peer = valid_peer().await?;
+    let app = app_for(&peer).await?;
+    let foreign = note_by(&peer, &peer.member_id(), 1);
+
+    assert_eq!(
+        post_inbox(&app, signed(&peer, &create(&peer, 1, &foreign)).await?).await?,
+        StatusCode::UNAUTHORIZED
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn order_create_federation_check_wins_over_audience_check() -> TestResult {
+    let peer = valid_peer().await?;
+    let app = app_for(&peer).await?;
+    let followers = format!("{}/followers", peer.actor_id());
+    let private = addressed(note(&peer, 1), json!([followers]), json!([]));
+
+    assert_eq!(
+        post_inbox(&app, signed(&peer, &create(&peer, 1, &private)).await?).await?,
+        StatusCode::FORBIDDEN
+    );
     Ok(())
 }

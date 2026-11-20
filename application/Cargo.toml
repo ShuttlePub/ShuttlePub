@@ -9,10 +9,14 @@ name = "application"
 
 [dependencies]
 kernel.workspace = true
+port.workspace = true
+async-trait.workspace = true
 error-stack.workspace = true
+nitinol = { workspace = true, features = ["eventsource"] }
 thiserror.workspace = true
 
 [dev-dependencies]
+futures-util.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
 url.workspace = true
 

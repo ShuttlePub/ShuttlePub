@@ -2,64 +2,110 @@
 
 ## Run
 
+The events are kept in PostgreSQL. For development, start the one in
+[compose.yaml](../compose.yaml) and point the server at it:
+
 ```sh
-cargo run -p shuttlepub-server
+docker compose up -d --wait
+SHUTTLEPUB_DATABASE_URL=postgres://shuttlepub:shuttlepub@127.0.0.1:5432/shuttlepub \
+  cargo run -p shuttlepub-server
 ```
 
-Defaults: `127.0.0.1:3000`, actor `http://127.0.0.1:3000/actor`.
-Override `SHUTTLEPUB_BIND`, `SHUTTLEPUB_ACTOR` and comma-separated
-`SHUTTLEPUB_REMOTE_ORIGINS` (empty means deny all remote access; empty entries
-are skipped, each entry is reduced to its origin, and an entry that is not a
-URL stops the server at startup). Use the `/actor` path on the public origin.
-Only explicitly trusted origins may be listed, because they can resolve to
-internal addresses. Redirects and ambient HTTP proxies are disabled. HTTP
-origins are for local testing; use HTTPS for remote peers. This is an
-unauthenticated development service, not internet-ready.
+`docker compose down` stops PostgreSQL and keeps its data in the `postgres`
+volume; `docker compose down -v` removes the data too.
+
+`SHUTTLEPUB_DATABASE_URL` is required: without it, or when the database cannot
+be reached or migrated, the server stops with an error before it listens. The
+connection is made without TLS (see Persistence). Defaults: `127.0.0.1:3000`,
+actor `http://127.0.0.1:3000/actor`. Override `SHUTTLEPUB_BIND`,
+`SHUTTLEPUB_ACTOR` and comma-separated `SHUTTLEPUB_REMOTE_ORIGINS` (empty means
+deny all remote access; empty entries are skipped, each entry is reduced to its
+origin, and an entry that is not a URL stops the server at startup). Use the
+`/actor` path on the public origin. Only explicitly trusted origins may be
+listed, because they can resolve to internal addresses. Redirects and ambient
+HTTP proxies are disabled. HTTP origins are for local testing; use HTTPS for
+remote peers. This is an unauthenticated development service, not
+internet-ready.
 
 The server answers `POST /inbox` and `GET /actor` (ActivityPub, below),
 `GET /openapi.json` (the generated `/api/v1` contract) and the `/api/v1`
-contract stubs. Nothing is stored: the signing key is generated in memory at
-every start and is never written to disk; no database is used.
+contract stubs. The signing key is generated in memory at every start and is
+never written anywhere.
 
 ## Architecture
 
-Four crates, depending only downwards:
+Five crates, depending only downwards:
 
-| Crate | Holds | Workspace dependencies |
-| --- | --- | --- |
-| `kernel` | Entities and value objects (`LocalActor`, `RemoteActor`, `Follow`, `Accept`, ids, `PublicKey`), the ports to external systems and `KernelError` | none |
-| `application` | Services, the settings port (`AppConfig`) and `ApplicationError` | `kernel` |
-| `driver` | Adapters implementing the kernel ports (remote HTTP client, HTTP signatures, the in-memory signing key, the local actor), loading the settings, `DriverError` | `kernel` |
-| `server` | The composition root (`Handler`, `AppModule`), axum routes and middleware, the HTTP status mapping, the `/api/v1` contract and `main` | `application`, `driver`, `kernel` |
+| Crate | Holds | Workspace dependencies | nitinol features |
+| --- | --- | --- | --- |
+| `kernel` | The aggregates (`Producer`, `Note`), their commands, events and storage codecs, the values they are made of, the ports that are not external services (the local actor, HTTP signature verification) and `KernelError` | none | `contract` |
+| `port` | The ports whose implementations are mostly external services: delivering to a remote inbox, fetching a remote actor | `kernel` | none |
+| `application` | Services, the reaction that delivers Accepts, the settings port (`AppConfig`) and `ApplicationError` | `kernel`, `port` | `eventsource` |
+| `driver` | Adapters implementing the ports (remote HTTP client, HTTP signatures, the in-memory signing key, the local actor), loading the settings, `DriverError` | `kernel`, `port` | none |
+| `server` | The composition root (`Handler`, `AppModule`), axum routes and middleware, the HTTP status mapping, the PostgreSQL wiring, starting the reaction, the `/api/v1` contract and `main` | `application`, `driver`, `kernel`, `port` | `eventsource`, `postgres` |
 
-`kernel` does not depend on tokio, axum or reqwest, and its types are never
-used as JSON: `server` and `driver` convert at their boundary with their own
-serde types.
+`kernel` does not depend on tokio, `nitinol-runtime`, axum, reqwest or sqlx;
+`application` does not depend on axum, reqwest or sqlx
+(`scripts/ci/structural-checks.sh` checks both and the table above). Kernel
+types are never used as JSON: `server` and `driver` convert at their boundary
+with their own serde types, and the event codecs with private storage types.
+
+### Modules
+
+Inside each crate, modules follow the domain's groupings rather than kinds of
+type. A grouping a crate has nothing for has no module there. Identifiers more
+than one grouping uses are in `kernel::id`; settings, errors, the signing key
+and what the HTTP client and the HTTP signatures share have modules of their
+own.
+
+| Grouping | Module | `kernel` | `port` | `application` | `driver` | `server` |
+| --- | --- | --- | --- | --- | --- | --- |
+| This service itself | `community` | `LocalActor`, `PublicKey`, `LocalActorProvider` | | `LocalActorService` | `LocalIdentity` | `GET /actor` |
+| A service that asked to federate | `producer` | `Producer`, `IsAccepted`, `AcceptFederation`, `RecordAcceptDelivered`, `RecordAcceptFailed`, `ProducerEvent`, `ProducerCodec`, `Follow`, `Accept` | | `ProducerService` | | |
+| Checking what arrives | `intake` | `RemoteActor`, `HttpSignatureVerifier` | `RemoteActorResolver` | `IntakeService`, `InboundFollow`, `IdentifiedFollow`, `InboundCreate`, `IdentifiedCreate` | `SignatureVerifier`, `RemoteClient` as `RemoteActorResolver` | `POST /inbox` |
+| A Note that arrived | `note` | `Note`, `ReceiveNote`, `NoteEvent`, `NoteCodec` | | `NoteService` | | |
+| Delivering | `delivery` | | `ActivityDelivery` | `AcceptDelivery`, `OutcomeNotRecorded` | `RemoteClient` as `ActivityDelivery`, request signing | starting and stopping `AcceptDelivery` |
+| (shared) | | `id` (`ActorId`, `ActivityId`), `error` | | `eventsource` (`DependOnEventSourceSystem`), `config`, `error` | `remote` (`RemoteClient`), `keys` (`DevelopmentKey`), `config`, `error` | `app`, `database`, `error`, `api_v1`, `openapi` |
 
 ### Dependency injection (cake pattern)
 
-- Every port is a trait in `kernel::interface` paired with a `DependOn*`
-  trait that hands out an implementation through an accessor, e.g.
-  `RemoteActorResolver` / `DependOnRemoteActorResolver::remote_actor_resolver()`.
-  Ports: `RemoteActorResolver`, `ActivityDelivery`, `HttpSignatureVerifier`,
-  `LocalActorProvider`.
-- A service in `application::services` is a trait whose supertraits are the
-  `DependOn*` traits it needs and whose behaviour is in default methods; a
-  blanket `impl<T: ...> Service for T {}` gives it to every type that provides
-  those dependencies, and a `DependOn*Service` trait exposes it. Services have
-  no struct and no fields: `AcceptFollowService`, `LocalActorService`.
-- `server::app::Handler` owns the driver adapters and implements every
+- Every port is a trait paired with a `DependOn*` trait that hands out an
+  implementation through an accessor, e.g. `RemoteActorResolver` /
+  `DependOnRemoteActorResolver::remote_actor_resolver()`. External services
+  (`RemoteActorResolver`, `ActivityDelivery`) are in `port`; the local actor
+  (`LocalActorProvider`) and HTTP signature verification
+  (`HttpSignatureVerifier`) are in `kernel`.
+- A service is a trait whose supertraits are the `DependOn*` traits it needs
+  and whose behaviour is in default methods; a blanket
+  `impl<T: ...> Service for T {}` gives it to every type that provides those
+  dependencies, and a `DependOn*Service` trait exposes it. Services have no
+  struct and no fields: `LocalActorService`, `IntakeService`,
+  `ProducerService`, `NoteService`.
+- The aggregates run on nitinol's `EventSourceSystem`, which is not wrapped:
+  `server::app::Handler` holds an `EventSourceSystem<PostgresStore>` as a field
+  and hands it out through `application::eventsource::DependOnEventSourceSystem`.
+  `ProducerService` and `NoteService` send commands to an aggregate's
+  `AggregateProxy` with `ask_with_retry` (nitinol's default `RetryPolicy`) and
+  queries with `exec`. The store is fixed to `PostgresStore` in `server`: the
+  `Handler`, the axum state, `server::router` and the route functions take no
+  store type parameter, and no feature switches the store. `application` stays
+  generic over the store (`DependOnEventSourceSystem::Store`), so its tests run
+  it over `InMemoryStore`.
+- `Handler` owns the driver adapters and the system and implements every
   `DependOn*` trait; for services it answers `type FooService = Self`. The axum
   state is `AppModule(Arc<Handler>)` (`Clone`, `Deref<Target = Handler>`), and
   handlers call services only through accessors, e.g.
-  `app.accept_follow_service().accept(..)`.
+  `app.intake_service().accept_follow(..)`.
 - Async port methods are declared as
   `fn f(&self, ..) -> impl Future<Output = ..> + Send` and implemented with
   `async fn`; service default methods return `impl Future + Send` with one
-  `async` block. No `async_trait`.
+  `async` block. `async_trait` is used only to implement the traits nitinol
+  declares with it (`Projector` for `AcceptDelivery`, `TxProvider` for
+  `server::database::PoolTransactions`).
 - To test a service, implement the `DependOn*` traits on a test type with fake
-  ports; `application/tests/accept_follow.rs` does this without any HTTP
-  server or network.
+  ports and an `EventSourceSystem` over `InMemoryStore`;
+  `application/tests/federation.rs` does this without any HTTP server, database
+  or network.
 
 ### Errors
 
@@ -68,29 +114,33 @@ Each layer has a `thiserror` enum carried in an `error_stack::Report`
 report request-time failures through the ports as one of the `KernelError`
 classes, so `application` never sees driver types; `ApplicationError` keeps
 the class. Only `server/src/error.rs` maps classes to HTTP statuses: invalid
-signature and untrusted identity 401, origin not allowed 403, malformed 400,
-remote failure 502, internal 500; error bodies are `{"error": <reason>}`.
+signature and untrusted identity 401, origin not allowed and producer not
+accepted 403, malformed 400, remote failure 502, internal (including an event
+that could not be recorded) 500; error bodies are `{"error": <reason>}`.
 
 ## Federation boundary
 
-`POST /inbox` accepts only a Follow of this service's actor and answers `202`
-once the Accept was delivered. The inbox middleware
-(`server/src/routing/inbox.rs`) checks, and the first failing check decides
-the answer:
+`POST /inbox` accepts a Follow of this service's actor and a Create of a Note.
+The inbox middleware (`server/src/intake.rs`) checks, and the first failing
+check decides the answer:
 
 1. Body larger than 256 KiB: 413.
 2. `Signature` header missing or malformed (duplicated item, unquoted value,
    non-Base64 signature, invalid header name) or not covering all of
    `(request-target) host date digest content-type`: 401.
-3. Body not a Follow (invalid JSON, other `type`, missing or non-string
-   `id`/`actor`/`object`): 400.
-4. `AcceptFollowService::identify`: Follow `id` not a URL 400; `object` not
-   exactly this actor's id 401; `Host` not this actor's host and port 401;
-   `actor` not a URL 400; then the actor is resolved (origin not allowed,
-   non-http(s) scheme or credentials in the URL 403; fetch failure, error
-   status or document over 256 KiB 502; invalid document 400; document `id`
-   not the requested actor or key `owner` not the actor 401; inbox not a URL
-   400 or not allowed 403); `keyId` not the actor's key id 401.
+3. Body neither a Follow nor a Create (invalid JSON, other `type`; a Follow
+   with a missing or non-string `id`/`actor`/`object`; a Create with a missing
+   or non-string `id`/`actor`, or whose `object` is not an embedded `Note` with
+   string `id` and `attributedTo`): 400.
+4. The activity and its sender. A Follow (`IntakeService::identify_follow`):
+   `id` not a URL 400; `object` not exactly this actor's id 401. A Create
+   (`IntakeService::identify_create`): `id`, `actor` or the Note's `id` not a
+   URL 400. Then the sender, the same checks for both: `Host` not this actor's
+   host and port 401; `actor` not a URL 400; then the actor is resolved (origin
+   not allowed, non-http(s) scheme or credentials in the URL 403; fetch
+   failure, error status or document over 256 KiB 502; invalid document 400;
+   document `id` not the requested actor or key `owner` not the actor 401;
+   inbox not a URL 400 or not allowed 403); `keyId` not the actor's key id 401.
 5. Signature verification: algorithm not `rsa-sha256` 401; `Date` missing,
    unreadable or more than 300 seconds away 401; unreadable public key 502;
    SHA-256 digest mismatch 401; signature mismatch 401.
@@ -98,16 +148,83 @@ the answer:
 The middleware is attached to the `POST` handler only, so other methods on
 `/inbox` answer `405` without reading the body or contacting a remote.
 
-The Accept (`{actor}/accepts/{Follow id}`, the Follow as `object`) is signed
-with `rsa-sha256` over the same five components under keyId
-`{actor}#main-key`; a delivery error or error status is 502. Remote HTTP times
-out after 10 s (3 s to connect). Duplicate Follow requests redeliver the same
-Accept id; deduplication, follower storage and retries are not implemented.
+A Follow that passed every check is recorded as the federation of the
+producer its actor belongs to (`ProducerEvent::FederationAccepted`), and is
+answered `202` once that is recorded (500 if it cannot be). The answer does
+not wait for the Accept. A Follow repeated after its Accept was delivered is
+answered `202` and records nothing.
+
+A Create that passed every check is then checked in this order (see
+`IntakeService::accept_create`): the Note's `attributedTo` is not exactly the
+Create's `actor`, or the Note's id is on another origin than the actor, 401;
+the actor's service is not an accepted producer 403; the Create's `to` and `cc`
+(a single IRI or a list) contain none of
+`https://www.w3.org/ns/activitystreams#Public`, `as:Public`, `Public`: `202`
+and nothing is recorded. Otherwise the Note is recorded
+(`NoteEvent::Received`, with the activity's JSON as it arrived) and `202` is
+answered; a Note that is already recorded, whichever activity carries it, is
+answered `202` and records nothing. A rejected activity records nothing.
+
+### Producers and Notes
+
+A producer (`kernel::producer::Producer`) is one service that asked to
+federate, identified by the authority (`host[:port]`) of its actors' URLs:
+Notes are signed by their authors, so any actor of an accepted service may send
+them. It is accepted from the moment its federation is recorded, whether or not
+its Accept arrived. A Note (`kernel::note::Note`) is identified by its object
+id. Their aggregate ids are prefixed (`producer:`, `note:`), and their events
+are stored under the families `shuttlepub.producer.v1` and `shuttlepub.note.v1`
+(as `shuttlepub.producer.v1.ProducerEvent` and `shuttlepub.note.v1.NoteEvent`)
+in JSON whose shape is fixed by
+`kernel/tests/producer.rs` and `kernel/tests/note.rs`.
+
+### Accept delivery
+
+The Accept is delivered by `application::delivery::AcceptDelivery`, a nitinol
+`Projector` of `ProducerEvent` that follows the whole journal in order
+(`catchup_from_global`). For each `FederationAccepted` it delivers the Accept
+(`{actor}/accepts/{Follow id}`, the Follow as `object`), signed with
+`rsa-sha256` over the same five components under keyId `{actor}#main-key`, and
+records `AcceptDelivered` or, for a delivery error or error status,
+`AcceptFailed` with the reason. A failed delivery is not retried later; the
+remote gets another Accept by sending its Follow again. Remote HTTP times out
+after 10 s (3 s to connect), so an unresponsive inbox holds the events behind
+it back for at most that long.
+
+The reaction polls the journal (every 250 ms, nitinol's default), so the
+Accept is delivered some time after the Follow was answered, not at once. It is
+started by `server::delivery::spawn_accept_delivery`, the only way to start it,
+which saves its position as nitinol's projection offset once the outcomes of
+the events it covers are recorded (in PostgreSQL, through a transaction
+`server::database::PoolTransactions` opens), so a restart resumes after the
+last position saved instead of sending past Accepts again. An event may still
+be taken twice, after a failure or a restart, and its Accept delivered twice.
+
 `GET /actor` serves the actor as `application/activity+json` (`Application`
 with `id`, `inbox` and `publicKey`) without a signature.
 
 Emumet is not called. Its future capability/signing and relay requirements are
 in [emumet-contract.md](emumet-contract.md).
+
+## Persistence
+
+Events are kept with nitinol 0.8's PostgreSQL provider (`nitinol-sqlx` 0.7,
+`PostgresStore`): the journal, the projection offsets and the snapshots in one
+database. At startup the server, in this order, reads the settings, generates
+the signing key, connects to `SHUTTLEPUB_DATABASE_URL`, applies nitinol-sqlx's
+migrations with `PostgresEventStore::migrate` (recorded in
+`nitinol_migrations`), builds the `EventSourceSystem`, starts the Accept
+delivery and then listens. On Ctrl-C it stops listening first and then stops
+the Accept delivery. The application has no migrations of its own yet; one that
+adds a read model will run its own with `sqlx::migrate!()`.
+
+nitinol currently runs on a single node, and so does this service: one process
+per database, with no locking or leader election between processes. That is
+the scope of this stage, not of the role ShuttlePub takes on (the parts that
+gain the most from horizontal scaling); what running on one node teaches is
+meant to feed nitinol's clustering. nitinol-sqlx enables none of sqlx's TLS
+features, so the connection to PostgreSQL is not encrypted and a server that
+requires TLS cannot be used.
 
 ## Provenance
 
@@ -130,13 +247,37 @@ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --all-features --locked
 cargo build --workspace --locked
 git diff --check
+scripts/ci/structural-checks.sh
 ```
 
 CI (`.github/workflows/lint-and-test.yml`) runs these and the `openapi-schema`
-job on pushes and pull requests to `main` and `dev`. No external service is
-required; federation tests start their remote peers on ephemeral loopback ports.
-`server/tests/federation.rs` covers the inbox checks above end to end (test
-names `f01_`..`f12_` and `order_`), `server/tests/process.rs` starts the binary.
+job on pushes and pull requests to `main` and `dev`. Federation tests start
+their remote peers on ephemeral loopback ports.
+
+Each layer tests over its own store. `kernel` tests the aggregates as pure
+functions in `kernel/tests`, with no store. `application` tests the services
+and the Accept delivery in `application/tests` with fake ports and nitinol's
+`InMemoryStore`, without PostgreSQL. `port` holds only abstractions and has no
+tests. Every `server` test that assembles the application does so over
+PostgreSQL, the way `main` does: the inbox in `server/tests/federation.rs`, the
+contract tests (`server/tests/openapi.rs`, `server/tests/quick_reaction.rs`),
+`server/tests/persistence.rs` and the tests of `server/tests/process.rs` that
+start the binary. `InMemoryStore` appears nowhere in `server`.
+
+Those tests use the server `SHUTTLEPUB_TEST_DATABASE_URL` names if it is set,
+and otherwise start one PostgreSQL container with Docker (testcontainers)
+shared by the tests of a test binary, and a helper process (`sh` and the
+`docker` CLI) removes it once the binary has exited. Each test creates a
+database of its own on it. When neither is available those tests fail rather
+than pass.
+
+Test names carry the check they cover: in `server/tests/federation.rs`,
+`f01_`..`f12_` are the Follow checks above, `r01_`..`r09_` the recording and
+Accept delivery of a Follow, `n01_`..`n09_` the Create checks, and `order_`
+which answer wins when one request fails several checks;
+`server/tests/persistence.rs` takes `r01_`, `n01_` and `r06_` (restart) through
+the binary to PostgreSQL, and `server/tests/process.rs` covers startup (`r07_`,
+`r08_`).
 
 ## OpenAPI contract (`/api/v1`)
 

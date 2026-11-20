@@ -9,6 +9,7 @@ name = "driver"
 
 [dependencies]
 kernel.workspace = true
+port.workspace = true
 bytes.workspace = true
 error-stack.workspace = true
 http.workspace = true
