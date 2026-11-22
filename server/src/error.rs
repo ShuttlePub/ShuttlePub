@@ -16,10 +16,14 @@ pub enum ServerError {
     Key,
     #[error("the application could not be assembled")]
     Assembly,
+    #[error("the database could not be reached, migrated or opened")]
+    Database,
     #[error("the listener could not be bound")]
     Bind,
     #[error("the HTTP server failed")]
     Serve,
+    #[error("the Accept delivery could not be stopped")]
+    Reaction,
 }
 
 /// Error answer of the ActivityPub endpoints: the status with
@@ -43,7 +47,9 @@ impl From<Report<ApplicationError>> for ApiError {
             ApplicationError::InvalidSignature | ApplicationError::UntrustedIdentity => {
                 StatusCode::UNAUTHORIZED
             }
-            ApplicationError::OriginNotAllowed => StatusCode::FORBIDDEN,
+            ApplicationError::OriginNotAllowed | ApplicationError::ProducerNotAccepted => {
+                StatusCode::FORBIDDEN
+            }
             ApplicationError::Malformed => StatusCode::BAD_REQUEST,
             ApplicationError::RemoteFailure => StatusCode::BAD_GATEWAY,
             ApplicationError::Internal => StatusCode::INTERNAL_SERVER_ERROR,

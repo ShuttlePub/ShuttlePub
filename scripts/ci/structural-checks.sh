@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Layering checks read from Cargo's dependency graph:
-# - each workspace crate depends only on the workspace crates its layer allows
-#   (server -> {application, driver} -> kernel);
-# - kernel does not depend, directly or transitively, on an async runtime, a
-#   web framework or an HTTP client.
+# - each workspace crate depends on exactly the workspace crates its layer
+#   names (kernel -> none, port -> kernel, application and driver -> kernel and
+#   port, server -> all of them);
+# - kernel does not depend, directly or transitively, on an async runtime, the
+#   event-sourcing runtime, a web framework, an HTTP client or a database
+#   driver;
+# - application does not depend, directly or transitively, on a web
+#   framework, an HTTP client or a database driver.
 # Every violation is printed, and the script exits non-zero when there is any.
 set -Eeuo pipefail
 
@@ -11,19 +15,24 @@ cd "$(git rev-parse --show-toplevel)"
 
 workspace_crates=(
   shuttlepub-kernel
+  shuttlepub-port
   shuttlepub-application
   shuttlepub-driver
   shuttlepub-server
 )
 
-declare -A allowed_workspace_deps=(
+declare -A required_workspace_deps=(
   [shuttlepub-kernel]=""
-  [shuttlepub-application]="shuttlepub-kernel"
-  [shuttlepub-driver]="shuttlepub-kernel"
-  [shuttlepub-server]="shuttlepub-application shuttlepub-driver shuttlepub-kernel"
+  [shuttlepub-port]="shuttlepub-kernel"
+  [shuttlepub-application]="shuttlepub-kernel shuttlepub-port"
+  [shuttlepub-driver]="shuttlepub-kernel shuttlepub-port"
+  [shuttlepub-server]="shuttlepub-application shuttlepub-driver shuttlepub-kernel shuttlepub-port"
 )
 
-kernel_forbidden_deps=(tokio axum reqwest)
+declare -A forbidden_deps=(
+  [shuttlepub-kernel]="tokio nitinol-runtime axum reqwest sqlx"
+  [shuttlepub-application]="axum reqwest sqlx"
+)
 
 is_workspace_crate() {
   local name="$1" crate
@@ -52,19 +61,27 @@ main() {
     while IFS= read -r dep; do
       [[ -n "$dep" ]] || continue
       is_workspace_crate "$dep" || continue
-      if [[ " ${allowed_workspace_deps[$crate]} " != *" $dep "* ]]; then
+      if [[ " ${required_workspace_deps[$crate]} " != *" $dep "* ]]; then
         printf 'layer: %s must not depend on %s\n' "$crate" "$dep" >&2
         violations=$((violations + 1))
       fi
     done <<<"$tree"
+    for dep in ${required_workspace_deps[$crate]}; do
+      if ! grep -qx -- "$dep" <<<"$tree"; then
+        printf 'layer: %s must depend on %s\n' "$crate" "$dep" >&2
+        violations=$((violations + 1))
+      fi
+    done
   done
 
-  tree="$(dependency_names shuttlepub-kernel -e normal,build)"
-  for dep in "${kernel_forbidden_deps[@]}"; do
-    if grep -qx -- "$dep" <<<"$tree"; then
-      printf 'layer: shuttlepub-kernel must not depend on %s\n' "$dep" >&2
-      violations=$((violations + 1))
-    fi
+  for crate in "${!forbidden_deps[@]}"; do
+    tree="$(dependency_names "$crate" -e normal,build)"
+    for dep in ${forbidden_deps[$crate]}; do
+      if grep -qx -- "$dep" <<<"$tree"; then
+        printf 'layer: %s must not depend on %s\n' "$crate" "$dep" >&2
+        violations=$((violations + 1))
+      fi
+    done
   done
 
   if ((violations > 0)); then
